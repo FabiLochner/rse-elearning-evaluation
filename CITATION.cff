@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+title: rse-elearning-evaluation
+message: 'If you use this software, please cite it as below.'
+type: software
+authors:
+  - given-names: Fabian
+    family-names: Lochner
+    email: fabian.lochner@gi.de
+    affiliation: Gesellschaft für Informatik e.V. (GI)
+  - given-names: Julian
+    family-names: Dehne
+    email: julian.dehne@gi.de
+    affiliation: Gesellschaft für Informatik e.V. (GI)
+repository-code: 'https://github.com/FabiLochner/rse-elearning-evaluation'
+license: MIT
