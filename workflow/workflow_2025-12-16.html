@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Obsidian: workflow_2025-12-16</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #1a1a1a;
+            color: #dcddde;
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        .toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50px;
+            background: #2d2d2d;
+            border-bottom: 1px solid #404040;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 1000;
+        }
+        
+        .toolbar-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-right: 20px;
+        }
+        
+        .canvas-container {
+            position: fixed;
+            top: 50px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            background: #1a1a1a;
+            background-image: 
+                radial-gradient(circle at 25% 25%, #2a2a2a 1px, transparent 1px),
+                radial-gradient(circle at 75% 75%, #2a2a2a 1px, transparent 1px);
+            background-size: 50px 50px;
+            cursor: grab;
+            user-select: none;
+        }
+        
+        .canvas-container.scroll-enabled {
+            overflow: auto;
+        }
+        
+        .canvas-container.scroll-enabled .canvas {
+            min-width: 2000px;
+            min-height: 1500px;
+        }
+        
+        .canvas-container:active {
+            cursor: grabbing;
+        }
+        
+        .canvas {
+            position: relative;
+            width: 5980px;
+            height: 3020px;
+            background: transparent;
+            user-select: none;
+        }
+        
+        .node {
+            position: absolute;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: default;
+            user-select: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            z-index: 10;
+            overflow: hidden;
+        }
+        
+        .node.group {
+            background: rgba(45, 45, 45, 0.9);
+            border: 2px solid;
+            backdrop-filter: blur(10px);
+            padding-top: 20px;
+            overflow: visible;
+        }
+        
+        .group-title {
+            position: absolute;
+            top: -35px;
+            left: 0px;
+            background: #404040;
+            color: #ffffff;
+            padding: 8px 12px;
+            border-radius: 6px 6px 0 0;
+            font-size: 20px;
+            font-weight: 600;
+            text-align: left;
+            border: none;
+            z-index: 99999;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            width: auto;
+            min-width: fit-content;
+        }
+        
+        .node.text {
+            background: #2d2d2d;
+            border: 2px solid #404040;
+        }
+        
+        .node.file {
+            background: #2d2d2d;
+            border: 2px solid #404040;
+        }
+        
+        .node:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+            transform: translateY(-2px);
+        }
+        
+        .node-content {
+            color: #dcddde;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            max-width: 100%;
+            overflow-wrap: break-word;
+            user-select: text;
+            cursor: text;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 8px;
+        }
+        
+        .node-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .node-content::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        
+        .node-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+        }
+        
+        .node-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        
+        .node-content h1 {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 700;
+            margin: 12px 0 10px 0;
+            border-bottom: 2px solid currentColor;
+            padding-bottom: 8px;
+            word-wrap: break-word;
+        }
+        
+        .node-content h2 {
+            color: #ffffff;
+            font-size: 20px;
+            font-weight: 600;
+            margin: 10px 0 8px 0;
+            border-bottom: 1px solid currentColor;
+            padding-bottom: 6px;
+            word-wrap: break-word;
+        }
+        
+        .node-content h3 {
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 8px 0 6px 0;
+            word-wrap: break-word;
+        }
+        
+        .node-content h4 {
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 500;
+            margin: 6px 0 4px 0;
+            word-wrap: break-word;
+        }
+        
+        .node-content h5 {
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 4px 0 2px 0;
+            word-wrap: break-word;
+        }
+        
+        .node-content h6 {
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 500;
+            margin: 2px 0 2px 0;
+            word-wrap: break-word;
+        }
+        
+        .node-content p {
+            margin: 8px 0;
+            word-wrap: break-word;
+        }
+        
+        .node-content pre {
+            background: #1a1a1a;
+            padding: 8px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 11px;
+            margin: 8px 0;
+            border: 1px solid #404040;
+            max-height: 150px;
+            user-select: text;
+            cursor: text;
+            word-wrap: break-word;
+        }
+        
+        .node-content code {
+            background: #1a1a1a;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            border: 1px solid #404040;
+            user-select: text;
+            cursor: text;
+            word-wrap: break-word;
+        }
+        
+        .node-content .code-block {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            border-radius: 0;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            margin: 8px 0;
+            border: none;
+            max-height: 200px;
+            user-select: text;
+            cursor: text;
+            word-wrap: break-word;
+            line-height: 1.4;
+            white-space: pre;
+            tab-size: 4;
+        }
+        
+        /* Style pour les boîtes contenant du code */
+        .node.has-code .node-content {
+            background: #1e1e1e;
+            color: #ffffff;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #333333;
+            white-space: pre;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .node-content strong {
+            color: #ffffff;
+            font-weight: 600;
+        }
+        
+        .node-content em {
+            color: #b9bbbe;
+            font-style: italic;
+        }
+        
+        .node-content a {
+            color: #7289da;
+            text-decoration: none;
+        }
+        
+        .node-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .node-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            margin: 8px 0;
+            display: block;
+        }
+        
+        .node-content ul, .node-content ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        
+        .node-content li {
+            margin: 4px 0;
+            word-wrap: break-word;
+        }
+        
+        .code-block {
+            position: relative;
+            background: #1a1a1a;
+            border-radius: 6px;
+            padding: 8px 8px 8px 8px;
+            margin: 8px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            overflow-x: auto;
+        }
+        
+        .code-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .copy-button {
+            position: absolute;
+            top: -20px;
+            right: -10px;
+            background: transparent;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 30px;
+            cursor: pointer;
+            opacity: 1;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(4px);
+            font-weight: 500;
+            z-index: 10;
+            pointer-events: auto;
+            transform: translateZ(0);
+        }
+        
+        .copy-button:hover {
+            background: transparent;
+            transform: scale(1.2);
+        }
+        
+        .copy-button.copied {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .edges-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+        }
+        
+        .edge-line {
+            stroke-width: 3;
+            fill: none;
+            marker-end: url(#arrowhead);
+            stroke-linecap: round;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+        
+        .edge-line:hover {
+            stroke-width: 5;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+        }
+        
+        .edge-label {
+            fill: #ffffff;
+            font-size: 12px;
+            font-weight: bold;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+        
+        .search-overlay {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            background: #2d2d2d;
+            border: 1px solid #404040;
+            border-radius: 8px;
+            padding: 15px;
+            width: 300px;
+            z-index: 1001;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        }
+        
+        .search-input {
+            width: 100%;
+            background: #1a1a1a;
+            border: 1px solid #404040;
+            color: #dcddde;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #7289da;
+        }
+        
+        .search-results {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .search-result {
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .search-result:hover {
+            background: #404040;
+        }
+        
+        .search-result.highlighted {
+            background: #7289da;
+            color: #ffffff;
+        }
+        
+        .zoom-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            z-index: 1001;
+        }
+        
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            background: #2d2d2d;
+            border: 1px solid #404040;
+            color: #dcddde;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+        
+        .zoom-btn:hover {
+            background: #404040;
+            transform: scale(1.1);
+        }
+        
+        @media (max-width: 768px) {
+            .search-overlay {
+                width: calc(100vw - 40px);
+                right: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <div class="toolbar-title">🎨 Canvas Obsidian: workflow_2025-12-16</div>
+    </div>
+    
+    <div class="search-overlay">
+        <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search within content...">
+        <div class="search-results" id="searchResults"></div>
+    </div>
+    
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoomIn">+</button>
+        <button class="zoom-btn" id="zoomOut">-</button>
+        <button class="zoom-btn" id="zoomReset">1:1</button>
+    </div>
+    
+    <div class="canvas-container" id="canvasContainer">
+        <div class="canvas" id="canvas">
+            <svg class="edges-layer" id="edgesLayer" width="5980px" height="3020px">
+                <defs>
+                    <marker id="arrowhead" markerWidth="12" markerHeight="8" 
+                            refX="0" refY="4" orient="auto">
+                        <polygon points="0 0, 12 4, 0 8" fill="#00ff88" />
+                    </marker>
+                </defs>
+            </svg>
+
+            <div class="node text" id="0af8b93bb2a1d12b" data-type="text" 
+                 style="left: 1355px; top: 720px; width: 273px; height: 140px; border: 2px solid #ffa726 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>1.2) Publications from years without metadata (n=6)</h3></p></div>
+            </div>
+            
+            <div class="node text" id="b42ebd559bcf1782" data-type="text" 
+                 style="left: 430px; top: 720px; width: 280px; height: 140px; border: 2px solid #4caf50 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>1.1) Publications from years with metadata (n=17)</h3></p></div>
+            </div>
+            
+            <div class="node text" id="9dc6a02d088f6c4e" data-type="text" 
+                 style="left: -290px; top: 980px; width: 240px; height: 200px; border: 2px solid #4caf50 !important; background-color: transparent;">
+                <div class="node-content"><p><h4> Open questions:</h4></p><li>Which columns to keep? (Metadata files: 19-23 columns)</li></div>
+            </div>
+            
+            <div class="node text" id="80fad36dbda039df" data-type="text" 
+                 style="left: 910px; top: 300px; width: 360px; height: 140px; border: 2px solid #9c27b0 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>1) Text Pre-Processing</h3></p><li>Text Extraction </li></div>
+            </div>
+            
+            <div class="node text" id="eaedd0255d46f384" data-type="text" 
+                 style="left: 200px; top: 1000px; width: 1020px; height: 160px; border: 2px solid #4caf50 !important; background-color: transparent;">
+                <div class="node-content"><p><h5>Possible table:</h5></p><p>| id  | authors | title | year | pages? | abstract? | text | references? | subject | filename | sesstiontitle | type |<br>| --- | ------- | ----- | ---- | ------ | --------- | ---- | ----------- | ------- | -------- | ------------- | ---- |<br>|     |         |       |      |        |           |      |             |         |          |               |      |<br></p></div>
+            </div>
+            
+            <div class="node text" id="82a24714a6c196d6" data-type="text" 
+                 style="left: 2390px; top: 327px; width: 402px; height: 87px; border: 2px solid #00bcd4 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>2) MySQL Database </h3></p></div>
+            </div>
+            
+            <div class="node text" id="05e2acc96f42d6be" data-type="text" 
+                 style="left: 2428px; top: 600px; width: 364px; height: 81px; border: 2px solid #00bcd4 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>2.1) CREATE TABLES & INSERT DATA</h3></p></div>
+            </div>
+            
+            <div class="node text" id="9ce1239a95f9e48a" data-type="text" 
+                 style="left: 1130px; top: 1800px; width: 390px; height: 120px; border: 2px solid #9c27b0 !important; background-color: transparent;">
+                <div class="node-content"><p> ### Output: Pandas dataframes/csv files </p></div>
+            </div>
+            
+            <div class="node text" id="ae2c775d1137522d" data-type="text" 
+                 style="left: 2457px; top: 1660px; width: 307px; height: 120px; border: 2px solid #00bcd4 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>Output: Pandas dataframe</h3></p></div>
+            </div>
+            
+            <div class="node text" id="0572b7a29a99e4e6" data-type="text" 
+                 style="left: 2445px; top: 1353px; width: 331px; height: 120px; border: 2px solid #00bcd4 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>2.2) READ: SELECT/QUERY DATA</h3></p></div>
+            </div>
+            
+            <div class="node text" id="801e086b0a417280" data-type="text" 
+                 style="left: 2332px; top: 891px; width: 250px; height: 100px; border: 2px solid #00bcd4 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>TABLE 1:  PAPER</h3></p></div>
+            </div>
+            
+            <div class="node text" id="82cff8003737b57e" data-type="text" 
+                 style="left: 2670px; top: 884px; width: 280px; height: 137px; border: 2px solid #00bcd4 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>TABLE 2: LLM PROMPT TEMPLATES</h3></p></div>
+            </div>
+            
+            <div class="node text" id="50164535365139a5" data-type="text" 
+                 style="left: 3045px; top: 884px; width: 250px; height: 107px; border: 2px solid #00bcd4 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>TABLE 3: LLM ANNOTATIONS</h3></p></div>
+            </div>
+            
+            <div class="node text" id="aa93bc8320dab07e" data-type="text" 
+                 style="left: 4310px; top: 309px; width: 440px; height: 105px; border: 2px solid #ffeb3b !important; background-color: transparent;">
+                <div class="node-content"><p><h3>3) LLM DATA ANNOTATION </h3></p></div>
+            </div>
+            
+            <div class="node text" id="c9c63ae08e4808fb" data-type="text" 
+                 style="left: 4070px; top: 764px; width: 273px; height: 120px; border: 2px solid #ffeb3b !important; background-color: transparent;">
+                <div class="node-content"><p><h3><a href="https://meganno.megagon.info/latest/" target="_blank">MEGAnno+</a></h3></p></div>
+            </div>
+            
+            <div class="node text" id="90dc1b76a5afb39d" data-type="text" 
+                 style="left: 4530px; top: 1263px; width: 448px; height: 300px; border: 2px solid #ff6b6b !important; background-color: transparent;">
+                <div class="node-content"><p><h3>&lt;u&gt;Limitations&lt;/u&gt;</h3></p><p><strong>1) Multi-label annotation possible? Paper Examples: only 1 Label</strong></p><p><strong>2) No integration of LLM label explanations (vgl. Wang et al. (2024))</strong></p><p><strong>3) How difficult to use several LLMS?</strong></p></div>
+            </div>
+            
+            <div class="node text" id="56ac88f79e1d81d1" data-type="text" 
+                 style="left: 3449px; top: 1940px; width: 520px; height: 200px; border: 2px solid #ffeb3b !important; background-color: transparent;">
+                <div class="node-content"><p><h3>Possible table:</h3></p><p>| id  | data | label | confidence_score |     |<br>| --- | ---- | ----- | ---------------- | --- |<br>|     |      |       |                  |     |</p></div>
+            </div>
+            
+            <div class="node text" id="d22d384c358f1f32" data-type="text" 
+                 style="left: 4130px; top: 1940px; width: 703px; height: 200px; border: 2px solid #ffeb3b !important; background-color: transparent;">
+                <div class="node-content"><p><h3>Ideal table:</h3></p><p>| id  | data | label1 | confidence_score | label2 | confidence_score | ..... |<br>| --- | ---- | ------ | ---------------- | ------ | ---------------- | ----- |<br>|     |      |        |                  |        |                  |       |</p></div>
+            </div>
+            
+            <div class="node text" id="d2f6dd7b1f48aaf4" data-type="text" 
+                 style="left: 3370px; top: 824px; width: 320px; height: 129px; border: 2px solid #00bcd4 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>TABLE 4: INTER-CODER RELIABILITY METRICS</h3></p></div>
+            </div>
+            
+            <div class="node text" id="03f16ca245948ee7" data-type="text" 
+                 style="left: 3550px; top: 637px; width: 302px; height: 88px; border: 2px solid #00bcd4 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>TABLE 5: HUMAN RE-ANNOTATIONS</h3></p></div>
+            </div>
+            
+            <div class="node text" id="13589117fc7f4636" data-type="text" 
+                 style="left: 3709px; top: 2660px; width: 325px; height: 160px; border: 2px solid #ffeb3b !important; background-color: transparent;">
+                <div class="node-content"><p><h3>Output: Pandas dataframe/csv</h3></p></div>
+            </div>
+            
+            <div class="node file" id="84b7d45aa277fd0d" data-type="file" 
+                 style="left: 3551px; top: 1166px; width: 792px; height: 614px;  background-color: transparent;">
+                <div class="node-content"><p>📁  <strong>File:</strong> gi/rse_award/projects/database/delfi/tables_columns/attachments/Pasted image 20251216112550.png</p><p><img src="_src/Pasted image 20251216112550.png" alt="Image" style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px; display: block;"></p></div>
+            </div>
+            
+            <div class="node text" id="fbca9363d469ab05" data-type="text" 
+                 style="left: 5110px; top: 309px; width: 600px; height: 105px; border: 2px solid #bd0a96 !important; background-color: transparent;">
+                <div class="node-content"><p><h3>4) LLM ANNOTATION VERIFICATION  / HUMAN RE-ANNOTATION</h3></p></div>
+            </div>
+            
+            <div class="node text" id="f3d03f7f9dbc5a61" data-type="text" 
+                 style="left: 5234px; top: 725px; width: 353px; height: 107px; border: 2px solid #ffeb3b !important; background-color: transparent;">
+                <div class="node-content"><p><h3>STRUCTURED LLM OUTPUT (API)</h3></p></div>
+            </div>
+            
+            <div class="node text" id="5e400237d8a9a7b6" data-type="text" 
+                 style="left: 5128px; top: 1020px; width: 212px; height: 81px; border: 2px solid #ffeb3b !important; background-color: transparent;">
+                <div class="node-content"><p><h3><a href="https://platform.openai.com/docs/guides/structured-outputs" target="_blank">OPENAI API</a></h3></p></div>
+            </div>
+            
+            <div class="node text" id="8dd581f207cb5d14" data-type="text" 
+                 style="left: 1325px; top: 991px; width: 675px; height: 160px; border: 2px solid #ffa726 !important; background-color: transparent;">
+                <div class="node-content"><p><h5>Possible table:</h5></p><p>| id  | authors | title | year | pages? | abstract? | text | references? |<br>| --- | ------- | ----- | ---- | ------ | --------- | ---- | ----------- |<br>|     |         |       |      |        |           |      |             |<br></p></div>
+            </div>
+            
+            <div class="node text" id="844a6f206def2934" data-type="text" 
+                 style="left: 5530px; top: 1006px; width: 250px; height: 109px; border: 2px solid #ffeb3b !important; background-color: transparent;">
+                <div class="node-content"><p><h3><a href="https://ai.google.dev/gemini-api/docs/structured-output?hl=de&example=recipe" target="_blank">GEMINI API</a></h3></p></div>
+            </div>
+            
+            <div class="node text" id="1d79a3731cb68336" data-type="text" 
+                 style="left: 5234px; top: 1276px; width: 527px; height: 287px; border: 2px solid #ffeb3b !important; background-color: transparent;">
+                <div class="node-content"><p><h3>&lt;u&gt;Benefits&lt;/u&gt;:</h3></p><p><strong>1) Multi-label annotation possible</strong></p><p><strong>2)Integration of LLM label explanation possible</strong></p><p><strong>3) Easy to use several LLMs</strong></p><p><strong>4)Maybe more complicated for human re-annotation</strong></p></div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        class ObsidianCanvas {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.container = document.getElementById('canvasContainer');
+                this.edgesLayer = document.getElementById('edgesLayer');
+                this.nodes = [];
+                this.edges = [];
+                this.zoom = 1;
+                this.optimalZoom = 1;
+                this.init();
+            }
+            
+            init() {
+                this.loadCanvasData();
+                this.setupEventListeners();
+                this.drawEdges();
+                this.centerView();
+            }
+            
+            loadCanvasData() {
+                const nodeElements = document.querySelectorAll('.node');
+                nodeElements.forEach(nodeEl => {
+                    this.nodes.push({
+                        id: nodeEl.id,
+                        element: nodeEl,
+                        x: parseFloat(nodeEl.style.left),
+                        y: parseFloat(nodeEl.style.top),
+                        width: parseFloat(nodeEl.style.width),
+                        height: parseFloat(nodeEl.style.height),
+                        type: nodeEl.dataset.type
+                    });
+                });
+                const edgesData = [{"id": "8648bde39b6fe18a", "fromNode": "80fad36dbda039df", "fromSide": "bottom", "toNode": "b42ebd559bcf1782", "toSide": "top"}, {"id": "d11a7d8cd053d309", "fromNode": "80fad36dbda039df", "fromSide": "bottom", "toNode": "0af8b93bb2a1d12b", "toSide": "top"}, {"id": "15da05f9dad5adb6", "fromNode": "0af8b93bb2a1d12b", "fromSide": "bottom", "toNode": "8dd581f207cb5d14", "toSide": "top"}, {"id": "7b74847c915ec568", "fromNode": "b42ebd559bcf1782", "fromSide": "left", "toNode": "9dc6a02d088f6c4e", "toSide": "top"}, {"id": "5ba5d3c9f7eea332", "fromNode": "b42ebd559bcf1782", "fromSide": "bottom", "toNode": "eaedd0255d46f384", "toSide": "top"}, {"id": "6ddf46e174989b60", "fromNode": "8dd581f207cb5d14", "fromSide": "bottom", "toNode": "9ce1239a95f9e48a", "toSide": "top"}, {"id": "74d8aacc5970b587", "fromNode": "eaedd0255d46f384", "fromSide": "bottom", "toNode": "9ce1239a95f9e48a", "toSide": "top"}, {"id": "b7a989aad04f79fc", "fromNode": "80fad36dbda039df", "fromSide": "right", "toNode": "82a24714a6c196d6", "toSide": "left"}, {"id": "d4934bd969875699", "fromNode": "82a24714a6c196d6", "fromSide": "bottom", "toNode": "05e2acc96f42d6be", "toSide": "top"}, {"id": "f077b652c5648120", "fromNode": "9ce1239a95f9e48a", "fromSide": "right", "toNode": "05e2acc96f42d6be", "toSide": "left"}, {"id": "8b46694d72fc048a", "fromNode": "0572b7a29a99e4e6", "fromSide": "bottom", "toNode": "ae2c775d1137522d", "toSide": "top"}, {"id": "6b568b20e936dd7f", "fromNode": "05e2acc96f42d6be", "fromSide": "bottom", "toNode": "801e086b0a417280", "toSide": "top"}, {"id": "57ef6e0dbda32e63", "fromNode": "801e086b0a417280", "fromSide": "bottom", "toNode": "0572b7a29a99e4e6", "toSide": "top"}, {"id": "e0ddbeb7ccc97d7f", "fromNode": "82a24714a6c196d6", "fromSide": "right", "toNode": "aa93bc8320dab07e", "toSide": "left"}, {"id": "b84d63f27933b3e7", "fromNode": "aa93bc8320dab07e", "fromSide": "bottom", "toNode": "c9c63ae08e4808fb", "toSide": "top", "label": "either"}, {"id": "5de71b928eac00bd", "fromNode": "c9c63ae08e4808fb", "fromSide": "right", "toNode": "90dc1b76a5afb39d", "toSide": "top"}, {"id": "0c1b75438dedb756", "fromNode": "c9c63ae08e4808fb", "fromSide": "left", "toNode": "84b7d45aa277fd0d", "toSide": "top"}, {"id": "3995d041efdd48d8", "fromNode": "84b7d45aa277fd0d", "fromSide": "bottom", "toNode": "56ac88f79e1d81d1", "toSide": "top"}, {"id": "d2dbcc7a43eec117", "fromNode": "56ac88f79e1d81d1", "fromSide": "bottom", "toNode": "13589117fc7f4636", "toSide": "top"}, {"id": "32ddc71b504d81ed", "fromNode": "05e2acc96f42d6be", "fromSide": "bottom", "toNode": "82cff8003737b57e", "toSide": "top"}, {"id": "e7f4a0bd8f105d32", "fromNode": "05e2acc96f42d6be", "fromSide": "bottom", "toNode": "50164535365139a5", "toSide": "top"}, {"id": "7fa168dacdb55e69", "fromNode": "84b7d45aa277fd0d", "fromSide": "bottom", "toNode": "d22d384c358f1f32", "toSide": "top"}, {"id": "c603d989fc593906", "fromNode": "d22d384c358f1f32", "fromSide": "bottom", "toNode": "13589117fc7f4636", "toSide": "top"}, {"id": "a542f7e68c4a7030", "fromNode": "05e2acc96f42d6be", "fromSide": "bottom", "toNode": "d2f6dd7b1f48aaf4", "toSide": "top"}, {"id": "057f030b5d20ec30", "fromNode": "05e2acc96f42d6be", "fromSide": "right", "toNode": "03f16ca245948ee7", "toSide": "top"}, {"id": "e0eeb785c2bb024e", "fromNode": "13589117fc7f4636", "fromSide": "left", "toNode": "50164535365139a5", "toSide": "left"}, {"id": "a6bcf2976c6a22ce", "fromNode": "ae2c775d1137522d", "fromSide": "right", "toNode": "84b7d45aa277fd0d", "toSide": "left"}, {"id": "ff43da81d38fbd24", "fromNode": "aa93bc8320dab07e", "fromSide": "right", "toNode": "fbca9363d469ab05", "toSide": "left"}, {"id": "8ba44d3341dfd5b4", "fromNode": "aa93bc8320dab07e", "fromSide": "bottom", "toNode": "f3d03f7f9dbc5a61", "toSide": "top", "label": "or"}, {"id": "0a8e5b8c36e89a9b", "fromNode": "f3d03f7f9dbc5a61", "fromSide": "bottom", "toNode": "5e400237d8a9a7b6", "toSide": "top"}, {"id": "528df1797c569b29", "fromNode": "f3d03f7f9dbc5a61", "fromSide": "bottom", "toNode": "844a6f206def2934", "toSide": "top"}, {"id": "1d80c2521eee9bdf", "fromNode": "5e400237d8a9a7b6", "fromSide": "bottom", "toNode": "1d79a3731cb68336", "toSide": "top"}, {"id": "cd44aa79535bea59", "fromNode": "844a6f206def2934", "fromSide": "bottom", "toNode": "1d79a3731cb68336", "toSide": "top"}];
+                this.edges = edgesData;
+                
+                console.log('Canvas loaded:', this.nodes.length, 'nodes,', this.edges.length, 'connections');
+            }
+            
+            centerView() {
+                if (this.nodes.length > 0) {
+                    const minX = Math.min(...this.nodes.map(n => n.x));
+                    const maxX = Math.max(...this.nodes.map(n => n.x + n.width));
+                    const minY = Math.min(...this.nodes.map(n => n.y));
+                    const maxY = Math.max(...this.nodes.map(n => n.y + n.height));
+                    const contentWidth = maxX - minX;
+                    const contentHeight = maxY - minY;
+                    const containerWidth = this.container.clientWidth;
+                    const containerHeight = this.container.clientHeight;
+                    const margin = 100;
+                    const scaleX = (containerWidth - margin) / contentWidth;
+                    const scaleY = (containerHeight - margin) / contentHeight;
+                    const optimalZoom = Math.min(scaleX, scaleY, 1);
+                    const finalZoom = Math.max(optimalZoom, 0.1);
+                    this.zoom = finalZoom;
+                    this.optimalZoom = finalZoom;
+                    this.applyZoom();
+                    const centerX = (minX + maxX) / 2;
+                    const centerY = (minY + maxY) / 2;
+                    const finalScrollLeft = (centerX * this.zoom) - (containerWidth / 2);
+                    const finalScrollTop = (centerY * this.zoom) - (containerHeight / 2);
+                    this.container.scrollLeft = finalScrollLeft;
+                    this.container.scrollTop = finalScrollTop;
+                    console.log('Initial optimal view (auto-zoom out):', {
+                        finalZoom: this.zoom,
+                        contentWidth: contentWidth,
+                        contentHeight: contentHeight,
+                        containerWidth: containerWidth,
+                        containerHeight: containerHeight,
+                        finalScrollLeft: finalScrollLeft,
+                        finalScrollTop: finalScrollTop
+                    });
+                }
+            }
+            
+            setupEventListeners() {
+                document.getElementById('zoomIn').addEventListener('click', () => {
+                    this.zoomIn();
+                });
+                
+                document.getElementById('zoomOut').addEventListener('click', () => {
+                    this.zoomOut();
+                });
+                
+                document.getElementById('zoomReset').addEventListener('click', () => {
+                    this.zoomReset();
+                });
+                
+                document.getElementById('searchInput').addEventListener('input', (e) => {
+                    this.searchNodes(e.target.value);
+                });
+                
+                this.container.addEventListener('mousedown', (e) => {
+                    this.startPanning(e);
+                });
+                
+                this.container.addEventListener('mousemove', (e) => {
+                    this.pan(e);
+                });
+                
+                this.container.addEventListener('mouseup', (e) => {
+                    this.stopPanning();
+                });
+                
+                this.container.addEventListener('wheel', (e) => {
+                    this.handleWheel(e);
+                });
+                
+                this.container.addEventListener('mousemove', (e) => {
+                    this.lastMouseX = e.clientX;
+                    this.lastMouseY = e.clientY;
+                });
+            }
+            
+            startPanning(e) {
+                if (e.target.closest('.node')) return;
+                
+                this.isPanning = true;
+                this.panStart = { x: e.clientX, y: e.clientY };
+                this.scrollStart = { x: this.container.scrollLeft, y: this.container.scrollTop };
+                this.container.style.cursor = 'grabbing';
+            }
+            
+            pan(e) {
+                if (!this.isPanning) return;
+                
+                const deltaX = e.clientX - this.panStart.x;
+                const deltaY = e.clientY - this.panStart.y;
+                
+                this.container.scrollLeft = this.scrollStart.x - deltaX;
+                this.container.scrollTop = this.scrollStart.y - deltaY;
+            }
+            
+            stopPanning() {
+                this.isPanning = false;
+                this.container.style.cursor = 'grab';
+            }
+            
+            handleWheel(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    const mouseX = e.clientX;
+                    const mouseY = e.clientY;
+                    const canvasRect = this.canvas.getBoundingClientRect();
+                    const relativeX = (mouseX - canvasRect.left) / this.zoom + this.container.scrollLeft / this.zoom;
+                    const relativeY = (mouseY - canvasRect.top) / this.zoom + this.container.scrollTop / this.zoom;
+                    const oldZoom = this.zoom;
+                    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                    this.zoom *= delta;
+                    const minZoom = this.calculateMinZoom();
+                    this.zoom = Math.max(minZoom, Math.min(3, this.zoom));
+                    this.applyZoomWithMouseFocus(relativeX, relativeY, oldZoom);
+                }
+            }
+            
+            drawEdges() {
+                console.log('Drawing connections...');
+                this.edges.forEach(edge => {
+                    this.drawEdge(edge);
+                });
+            }
+            
+            drawEdge(edge) {
+                const fromNode = this.nodes.find(n => n.id === edge.fromNode);
+                const toNode = this.nodes.find(n => n.id === edge.toNode);
+                
+                if (!fromNode || !toNode) {
+                    console.warn('Missing node for connection:', edge);
+                    return;
+                }
+
+                const fromAnchor = this.calculateAnchorPoint(fromNode, toNode, edge.fromSide || 'right', false);
+                const toAnchor = this.calculateAnchorPoint(toNode, fromNode, edge.toSide || 'left', true);
+                
+                console.log('Drawing connection:', edge.id, 'from', fromNode.id, 'to', toNode.id);
+                console.log('FromSide:', edge.fromSide, 'ToSide:', edge.toSide);
+                console.log('FromAnchor:', fromAnchor, 'ToAnchor:', toAnchor);
+                const midX = (fromAnchor.x + toAnchor.x) / 2;
+                const midY = (fromAnchor.y + toAnchor.y) / 2;
+                const dx = toAnchor.x - fromAnchor.x;
+                const dy = toAnchor.y - fromAnchor.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const baseOffset = Math.min(distance * 0.4, 60);
+                const randomFactor = 0.8 + Math.random() * 0.4;
+                let offset = baseOffset * randomFactor;
+                const isHorizontalPerfect = Math.abs(fromAnchor.y - toAnchor.y) < 1;
+                const isHorizontalConnection = Math.abs(dx) > Math.abs(dy) * 3;
+                const isVerticalPerfect = Math.abs(fromAnchor.x - toAnchor.x) < 1;
+                const isVerticalConnection = Math.abs(dy) > Math.abs(dx) * 3;
+                const fromSide = edge.fromSide || 'right';
+                const toSide = edge.toSide || 'left';
+                const sameSideConnection = fromSide === toSide;
+                let path;
+                let labelX, labelY;
+                
+                if (isHorizontalPerfect && isHorizontalConnection && !sameSideConnection) {
+                    const controlPoints = this.createPerpendicularControlPoints(fromAnchor, toAnchor, fromSide, toSide);
+                    path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const d = 'M ' + fromAnchor.x + ' ' + fromAnchor.y + 
+                              ' L ' + controlPoints.fromControl.x + ' ' + controlPoints.fromControl.y + 
+                              ' L ' + controlPoints.toControl.x + ' ' + controlPoints.toControl.y + 
+                              ' L ' + toAnchor.x + ' ' + toAnchor.y;
+                    path.setAttribute('d', d);
+                    labelX = (fromAnchor.x + toAnchor.x) / 2;
+                    labelY = fromAnchor.y;
+                } else if (isVerticalPerfect && isVerticalConnection && !sameSideConnection) {
+                    const controlPoints = this.createPerpendicularControlPoints(fromAnchor, toAnchor, fromSide, toSide);
+                    path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const d = 'M ' + fromAnchor.x + ' ' + fromAnchor.y + 
+                              ' L ' + controlPoints.fromControl.x + ' ' + controlPoints.fromControl.y + 
+                              ' L ' + controlPoints.toControl.x + ' ' + controlPoints.toControl.y + 
+                              ' L ' + toAnchor.x + ' ' + toAnchor.y;
+                    path.setAttribute('d', d);
+
+                    labelX = fromAnchor.x;
+                    labelY = (fromAnchor.y + toAnchor.y) / 2;
+                } else {
+                    const controlPoints = this.createPerpendicularControlPoints(fromAnchor, toAnchor, fromSide, toSide);
+                    let direction;
+                    
+                    if (sameSideConnection) {
+                        console.log('Same side connection detected:', fromSide, '→', toSide);
+                        if (fromSide === 'left' && toSide === 'left') {
+                            direction = -1;
+                            console.log('Left→Left: direction =', direction);
+                        } else if (fromSide === 'right' && toSide === 'right') {
+                            direction = 1;
+                            console.log('Right→Right: direction =', direction);
+                        } else if (fromSide === 'top' && toSide === 'top') {
+                            direction = -1;
+                            console.log('Top→Top: direction =', direction);
+                        } else if (fromSide === 'bottom' && toSide === 'bottom') {
+                            direction = 1;
+                            console.log('Bottom→Bottom: direction =', direction);
+                        } else {
+                            direction = Math.random() > 0.5 ? 1 : -1;
+                            console.log('Default direction:', direction);
+                        }
+
+                        offset = Math.min(offset * 1.2, 40);
+                        console.log('Offset adjusted for same side:', offset);
+                    } else {
+                        direction = Math.random() > 0.5 ? 1 : -1;
+                        console.log('Random direction for opposite sides:', direction);
+                    }
+
+                    let perpX, perpY;
+                    
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        perpX = 0;
+                        perpY = direction * offset;
+                        console.log('Horizontal connection: perpX =', perpX, 'perpY =', perpY);
+                    } else {
+                        perpX = direction * offset;
+                        perpY = 0;
+                        console.log('Vertical connection: perpX =', perpX, 'perpY =', direction * offset);
+                    }
+
+                    const midControlX = midX + perpX;
+                    const midControlY = midY + perpY;
+                    console.log('Central control point:', midControlX, midControlY);
+                    path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    
+                    const adjustedEndPoint = this.adjustArrowEndPoint(toAnchor, toSide);
+                    const d = 'M ' + fromAnchor.x + ' ' + fromAnchor.y + 
+                              ' C ' + controlPoints.fromControl.x + ' ' + controlPoints.fromControl.y + 
+                              ' ' + controlPoints.toControl.x + ' ' + controlPoints.toControl.y + 
+                              ' ' + adjustedEndPoint.x + ' ' + adjustedEndPoint.y;
+                    path.setAttribute('d', d);
+                    console.log("Original anchor point:", toAnchor);
+                    console.log("Adjusted end point:", adjustedEndPoint);
+                    console.log('SVG path created with curve and arrow base arrival:', d);
+                    const t = 0.5;
+                    const oneMinusT = 1 - t;
+                    const oneMinusTSquared = oneMinusT * oneMinusT;
+                    const oneMinusTCubed = oneMinusTSquared * oneMinusT;
+                    const tSquared = t * t;
+                    const tCubed = tSquared * t;
+                    labelX = oneMinusTCubed * fromAnchor.x + 
+                            3 * oneMinusTSquared * t * controlPoints.fromControl.x + 
+                            3 * oneMinusT * tSquared * controlPoints.toControl.x + 
+                            tCubed * adjustedEndPoint.x;
+                    labelY = oneMinusTCubed * fromAnchor.y + 
+                            3 * oneMinusTSquared * t * controlPoints.fromControl.y + 
+                            3 * oneMinusT * tSquared * controlPoints.toControl.y + 
+                            tCubed * adjustedEndPoint.y;
+                }
+                
+                path.setAttribute('class', 'edge-line');
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke', this.getEdgeColor(edge));
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('marker-end', 'url(#arrowhead)');
+                
+                console.log('Arrow color applied:', {
+                    edgeId: edge.id,
+                    edgeColor: edge.color,
+                    finalColor: this.getEdgeColor(edge)
+                });
+                
+                this.edgesLayer.appendChild(path);
+
+                if (edge.label) {
+                    console.log('Adding label:', edge.label, 'at position:', labelX, labelY);
+                    
+                    const labelGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    
+                    const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    textElement.setAttribute('x', labelX);
+                    textElement.setAttribute('y', labelY);
+                    textElement.setAttribute('class', 'edge-label');
+                    textElement.textContent = edge.label;
+
+                    this.edgesLayer.appendChild(labelGroup);
+                    labelGroup.appendChild(textElement);
+
+                    setTimeout(() => {
+                        try {
+                            const bbox = textElement.getBBox();
+                            const padding = 6;
+                            
+                            console.log('Text dimensions after timeout:', bbox);
+                            
+                            if (bbox.width > 0 && bbox.height > 0) {
+                                const backgroundRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                                backgroundRect.setAttribute('x', bbox.x - padding);
+                                backgroundRect.setAttribute('y', bbox.y - padding);
+                                backgroundRect.setAttribute('width', bbox.width + padding * 2);
+                                backgroundRect.setAttribute('height', bbox.height + padding * 2);
+                                backgroundRect.setAttribute('fill', 'rgba(128, 128, 128, 0.8)');
+                                backgroundRect.setAttribute('rx', '4');
+                                backgroundRect.setAttribute('ry', '4');
+                                labelGroup.insertBefore(backgroundRect, textElement);
+                                console.log('Label background added successfully');
+                            } else {
+                                console.warn('Text dimensions still null, using default dimensions');
+                                const defaultWidth = edge.label.length * 8;
+                                const defaultHeight = 16;
+                                
+                                const backgroundRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                                backgroundRect.setAttribute('x', labelX - defaultWidth/2 - padding);
+                                backgroundRect.setAttribute('y', labelY - defaultHeight/2 - padding);
+                                backgroundRect.setAttribute('width', defaultWidth + padding * 2);
+                                backgroundRect.setAttribute('height', defaultHeight + padding * 2);
+                                backgroundRect.setAttribute('fill', 'rgba(128, 128, 128, 0.8)');
+                                backgroundRect.setAttribute('rx', '4');
+                                backgroundRect.setAttribute('ry', '4');
+                                
+                                labelGroup.insertBefore(backgroundRect, textElement);
+                                console.log('Label background added with default dimensions');
+                            }
+                        } catch (error) {
+                            console.error('Error creating label background:', error);
+                        }
+                    }, 0);
+                    
+                    console.log('Label added successfully');
+                }
+            }
+            
+            calculateAnchorPoint(node, targetNode, side, isArrival = false) {
+                const centerX = node.x + node.width / 2;
+                const centerY = node.y + node.height / 2;
+                
+                let anchorX, anchorY;
+
+                const offset = isArrival ? 30 : 0;
+                
+                switch(side) {
+                    case 'top':
+                        anchorX = centerX;
+                        anchorY = node.y - offset;
+                        break;
+                    case 'bottom':
+                        anchorX = centerX;
+                        anchorY = node.y + node.height + offset;
+                        break;
+                    case 'left':
+                        anchorX = node.x - offset;
+                        anchorY = centerY;
+                        break;
+                    case 'right':
+                        anchorX = node.x + node.width + offset;
+                        anchorY = centerY;
+                        break;
+                    default:
+                        const dx = targetNode.x - node.x;
+                        const dy = targetNode.y - node.y;
+                        
+                        if (Math.abs(dx) > Math.abs(dy)) {
+                            if (dx > 0) {
+                                anchorX = node.x + node.width + offset;
+                                anchorY = centerY;
+                            } else {
+                                anchorX = node.x - offset;
+                                anchorY = centerY;
+                            }
+                        } else {
+                            // Connexion verticale
+                            if (dy > 0) {
+                                anchorX = centerX;
+                                anchorY = node.y + node.height + offset;
+                            } else {
+                                anchorX = centerX;
+                                anchorY = node.y - offset;
+                            }
+                        }
+                }
+                
+                return { x: anchorX, y: anchorY };
+            }
+
+            createPerpendicularControlPoints(fromAnchor, toAnchor, fromSide, toSide) {
+                const offset = 80;
+                
+                let fromControl, toControl;
+
+                switch(fromSide) {
+                    case 'top':
+                        fromControl = { x: fromAnchor.x, y: fromAnchor.y - offset };
+                        break;
+                    case 'bottom':
+                        fromControl = { x: fromAnchor.x, y: fromAnchor.y + offset };
+                        break;
+                    case 'left':
+                        fromControl = { x: fromAnchor.x - offset, y: fromAnchor.y };
+                        break;
+                    case 'right':
+                        fromControl = { x: fromAnchor.x + offset, y: fromAnchor.y };
+                        break;
+                    default:
+                        fromControl = fromAnchor;
+                }
+
+                switch(toSide) {
+                    case 'top':
+                        toControl = { x: toAnchor.x, y: toAnchor.y - offset };
+                        break;
+                    case 'bottom':
+                        toControl = { x: toAnchor.x, y: toAnchor.y + offset };
+                        break;
+                    case 'left':
+                        toControl = { x: toAnchor.x - offset, y: toAnchor.y };
+                        break;
+                    case 'right':
+                        toControl = { x: toAnchor.x + offset, y: toAnchor.y };
+                        break;
+                    default:
+                        toControl = toAnchor;
+                }
+                
+                return { fromControl, toControl };
+            }
+
+            adjustArrowEndPoint(toAnchor, toSide) {
+                return toAnchor;
+            }
+            
+            getEdgeColor(edge) {
+                const colorCode = edge.color || "3";
+
+                if (typeof colorCode === 'string' && colorCode.startsWith('#')) {
+                    return colorCode;
+                }
+
+                const colorMap = {
+                    "1": "#ff6b6b",
+                    "2": "#ffa726",
+                    "3": "#ffeb3b",
+                    "4": "#4caf50",
+                    "5": "#00bcd4",
+                    "6": "#9c27b0",
+                    "7": "#2196f3",
+                    "8": "#795548",
+                    "9": "#607d8b",
+                    "10": "#e91e63"
+                };
+                
+                return colorMap[colorCode] || "#ffeb3b";
+            }
+            
+            searchNodes(query) {
+                const results = document.getElementById('searchResults');
+                results.innerHTML = '';
+                
+                if (!query.trim()) return;
+                
+                const matchingNodes = this.nodes.filter(node => {
+                    const content = node.element.querySelector('.node-content').textContent.toLowerCase();
+                    return content.includes(query.toLowerCase());
+                });
+                
+                matchingNodes.forEach(node => {
+                    const resultEl = document.createElement('div');
+                    resultEl.className = 'search-result';
+                    resultEl.textContent = node.element.querySelector('.node-content').textContent.substring(0, 50) + '...';
+                    
+                    resultEl.addEventListener('click', () => {
+                        this.scrollToNode(node);
+                        this.highlightNode(node);
+                    });
+                    
+                    results.appendChild(resultEl);
+                });
+            }
+            
+            scrollToNode(node) {
+                const containerRect = this.container.getBoundingClientRect();
+                const zoomedX = node.x * this.zoom;
+                const zoomedY = node.y * this.zoom;
+                const zoomedWidth = node.width * this.zoom;
+                const zoomedHeight = node.height * this.zoom;
+                
+                this.container.scrollTo({
+                    left: zoomedX - containerRect.width / 2 + zoomedWidth / 2,
+                    top: zoomedY - containerRect.height / 2 + zoomedHeight / 2,
+                    behavior: 'smooth'
+                });
+                
+                console.log('Scroll to node with zoom:', {
+                    nodeId: node.id,
+                    originalX: node.x,
+                    originalY: node.y,
+                    zoom: this.zoom,
+                    zoomedX: zoomedX,
+                    zoomedY: zoomedY,
+                    scrollLeft: zoomedX - containerRect.width / 2 + zoomedWidth / 2,
+                    scrollTop: zoomedY - containerRect.height / 2 + zoomedHeight / 2
+                });
+            }
+            
+            highlightNode(node) {
+                node.element.style.boxShadow = '0 0 0 3px rgba(114, 137, 218, 0.8)';
+                setTimeout(() => {
+                    node.element.style.boxShadow = '';
+                }, 2000);
+            }
+            
+            zoomIn() {
+                const oldZoom = this.zoom;
+                this.zoom = Math.min(this.zoom * 1.2, 3);
+                const mouseX = this.lastMouseX || (this.container.clientWidth / 2);
+                const mouseY = this.lastMouseY || (this.container.clientHeight / 2);
+                const canvasRect = this.canvas.getBoundingClientRect();
+                const relativeX = (mouseX - canvasRect.left) / oldZoom + this.container.scrollLeft / oldZoom;
+                const relativeY = (mouseY - canvasRect.top) / oldZoom + this.container.scrollTop / oldZoom;
+                
+                this.applyZoomWithMouseFocus(relativeX, relativeY, oldZoom);
+            }
+            
+            zoomOut() {
+                const oldZoom = this.zoom;
+                this.zoom = this.zoom / 1.2;
+                const minZoom = this.calculateMinZoom();
+                this.zoom = Math.max(minZoom, this.zoom);
+                const mouseX = this.lastMouseX || (this.container.clientWidth / 2);
+                const mouseY = this.lastMouseY || (this.container.clientHeight / 2);
+                const canvasRect = this.canvas.getBoundingClientRect();
+                const relativeX = (mouseX - canvasRect.left) / oldZoom + this.container.scrollLeft / oldZoom;
+                const relativeY = (mouseY - canvasRect.top) / oldZoom + this.container.scrollTop / oldZoom;
+                
+                this.applyZoomWithMouseFocus(relativeX, relativeY, oldZoom);
+            }
+            
+            calculateMinZoom() {
+                const containerWidth = this.container.clientWidth;
+                const containerHeight = this.container.clientHeight;
+                const minX = Math.min(...this.nodes.map(n => n.x));
+                const maxX = Math.max(...this.nodes.map(n => n.x + n.width));
+                const minY = Math.min(...this.nodes.map(n => n.y));
+                const maxY = Math.max(...this.nodes.map(n => n.y + n.height));
+                
+                const contentWidth = maxX - minX;
+                const contentHeight = maxY - minY;
+                const margin = 100;
+                const scaleX = (containerWidth - margin) / contentWidth;
+                const scaleY = (containerHeight - margin) / contentHeight;
+                const optimalZoom = Math.min(scaleX, scaleY, 1);
+                const finalZoom = Math.max(optimalZoom, 0.1);
+                
+                return finalZoom;
+            }
+            
+            zoomReset() {
+                this.centerView();
+            }
+            
+            applyZoom() {
+                this.canvas.style.transform = `scale(${this.zoom})`;
+                this.canvas.style.transformOrigin = 'top left';
+                if (this.optimalZoom === undefined || this.optimalZoom === 1) {
+                    this.optimalZoom = this.zoom;
+                }
+                const isOptimal = Math.abs(this.zoom - this.optimalZoom) < 0.05;
+                
+                console.log('applyZoom debug:', {
+                    currentZoom: this.zoom,
+                    optimalZoom: this.optimalZoom,
+                    difference: Math.abs(this.zoom - this.optimalZoom),
+                    isOptimal: isOptimal
+                });
+                
+                if (isOptimal) {
+                    this.container.classList.remove('scroll-enabled');
+                    console.log('Scroll disabled - optimal view');
+                } else {
+                    this.container.classList.add('scroll-enabled');
+                    console.log('Scroll enabled - different zoom');
+                }
+            }
+
+            applyZoomWithMouseFocus(relativeX, relativeY, oldZoom) {
+                this.applyZoom();
+
+                const mouseX = relativeX * oldZoom - this.container.scrollLeft;
+                const mouseY = relativeY * oldZoom - this.container.scrollTop;
+                const newScrollLeft = relativeX * this.zoom - mouseX;
+                const newScrollTop = relativeY * this.zoom - mouseY;
+
+                this.container.scrollLeft = newScrollLeft;
+                this.container.scrollTop = newScrollTop;
+                
+                console.log('Zoom on mouse pointer (dynamic):', {
+                    relativeX: relativeX,
+                    relativeY: relativeY,
+                    oldZoom: oldZoom,
+                    newZoom: this.zoom,
+                    mouseX: mouseX,
+                    mouseY: mouseY,
+                    newScrollLeft: newScrollLeft,
+                    newScrollTop: newScrollTop
+                });
+            }
+
+            applyZoomWithCenterFocus(oldZoom) {
+
+                this.applyZoom();
+
+                const centerX = this.container.clientWidth / 2;
+                const centerY = this.container.clientHeight / 2;
+                const newScrollLeft = centerX * this.zoom - (centerX * oldZoom - this.container.scrollLeft);
+                const newScrollTop = centerY * this.zoom - (centerY * oldZoom - this.container.scrollTop);
+                
+                this.container.scrollLeft = newScrollLeft;
+                this.container.scrollTop = newScrollTop;
+            }
+        }
+
+        function copyCode(button) {
+            const codeBlock = button.parentElement;
+            const pre = codeBlock.querySelector('pre');
+            const codeContent = pre.textContent;
+            
+            navigator.clipboard.writeText(codeContent).then(() => {
+                button.textContent = '✅ Copied!';
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.textContent = '⮻';
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Copy error:', err);
+                button.textContent = '❌ Error';
+                setTimeout(() => {
+                    button.textContent = '⮻';
+                }, 2000);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = new ObsidianCanvas();
+        });
+    </script>
+</body>
+</html>
