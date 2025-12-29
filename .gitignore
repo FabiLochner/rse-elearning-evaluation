@@ -210,6 +210,16 @@ __marimo__/
 # Project-specific folders 
 data/
 reference_paper/
+db/mysqlworkbench 
+
+# .env file for credentials
+.env
+
+
+# Claude code files
+
+.claude/
+CLAUDE.md
 
 # Mac-specific files 
 **/.DS_Store
