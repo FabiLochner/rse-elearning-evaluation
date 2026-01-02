@@ -1,0 +1,25 @@
+# rse-elearning-evaluation dependencies
+# Python 3.13+ required
+#
+# Install with: pip install -r requirements.txt
+
+# PDF text extraction
+# PyMuPDF is licensed under AGPL-3.0. See: https://github.com/pymupdf/pymupdf
+# If AGPL is not suitable for your use case, contact Artifex for commercial licensing.
+pymupdf>=1.24.0
+
+# Data processing
+pandas>=2.2.0
+numpy>=2.0.0
+
+# Machine learning metrics (inter-rater reliability)
+scikit-learn>=1.5.0
+
+# Database
+mysql-connector-python>=9.0.0
+
+# Environment configuration
+python-dotenv>=1.0.0
+
+# Jupyter notebooks
+jupyter>=1.0.0
