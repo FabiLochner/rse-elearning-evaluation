@@ -7,4 +7,30 @@ The goal of this research paper is to evaluate the role of research software wit
 - [Contributing](#contributing)
 
 
+## Installation
+
+### Prerequisites
+
+- Python 3.13 or higher
+- MySQL Server (for storing extracted paper data)
+
+### Dependencies
+
+This project uses [PyMuPDF](https://github.com/pymupdf/pymupdf) for PDF text extraction. PyMuPDF is licensed under the **GNU Affero General Public License (AGPL-3.0)**. PyMuPDF is installed as a separate dependency via `requirements.txt` and is not distributed with this repository.
+
+All dependencies and their versions are listed in [`requirements.txt`](requirements.txt).
+
+### Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/rse-elearning-evaluation.git
+   cd rse-elearning-evaluation
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
 
