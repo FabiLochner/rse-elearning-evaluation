@@ -79,6 +79,8 @@ def extract_main_content(raw_text: str) -> str:
         patterns_priority_2 = [
             r'^Introduction\s*$',
             r'^Einleitung\s*$',
+            r'^Introduction:\s*.+$',  # "Introduction: subtitle"
+            r'^Einleitung:\s*.+$',    # "Einleitung: subtitle"
         ]
 
         for pattern in patterns_priority_2:
@@ -91,8 +93,8 @@ def extract_main_content(raw_text: str) -> str:
     # Matches "1   Title Text" or "1\nTitle Text" where title is up to ~80 chars
     if start_pos is None:
         patterns_priority_3 = [
-            r'^1\.?\s+[A-ZÄÖÜ][^\n]{0,80}$',  # "1   Two Traditions" (same line)
-            r'^1\s*\n\s*[A-ZÄÖÜ][^\n]{0,80}$',    # "1\nTwo Traditions" (separate line)
+            r'^1\.?\s+[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # e.g., "1   Two Traditions" (same line), but also sections starting with lowercase
+            r'^1\s*\n\s*[A-Za-zÄÖÜäöü][^\n]{0,80}$',    # e.g., "1\nTwo Traditions" (separate line) but also sections starting with lowercase
         ]
 
         for pattern in patterns_priority_3:
