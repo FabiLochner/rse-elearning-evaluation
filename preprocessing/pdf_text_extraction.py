@@ -45,7 +45,7 @@ def extract_main_content(raw_text: str) -> str:
         2. Keywords only: "Introduction" or "Einleitung" standalone (fallback)
         3. Number + Any title: "1   Two Traditions" (up to ~80 chars)
         4. Below Abstract (placeholder)
-        5. Below Keywords (placeholder)
+        5. Below Keywords: line after "Keywords:" for papers without numbered sections
 
     Args:
         raw_text: Full text extracted from PDF
@@ -105,9 +105,17 @@ def extract_main_content(raw_text: str) -> str:
     # if start_pos is None:
     #     pass
 
-    # Priority 5: Below Keywords (placeholder - not implemented yet)
-    # if start_pos is None:
-    #     pass
+    # Priority 5: Below Keywords - for papers where first section has no number
+    if start_pos is None:
+        # Find "Keywords:" line (English or German variants)
+        pattern_keywords = r'^(?:Keywords|Schlüsselwörter|Schlagwörter):\s*.+$'
+        match = re.search(pattern_keywords, raw_text, re.MULTILINE | re.IGNORECASE)
+        if match:
+            # Find the next non-empty line after Keywords (starts with uppercase)
+            remaining_text = raw_text[match.end():]
+            next_line_match = re.search(r'^\s*[A-ZÄÖÜ][^\n]+$', remaining_text, re.MULTILINE)
+            if next_line_match:
+                start_pos = match.end() + next_line_match.start()
 
     # Fallback: start from beginning if no pattern found
     if start_pos is None:
