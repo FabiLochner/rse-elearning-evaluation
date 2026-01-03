@@ -41,8 +41,8 @@ def extract_main_content(raw_text: str) -> str:
     Extract main text content (between intro section and references).
 
     Pattern Hierarchy:
-        1. Keywords only: "Introduction" or "Einleitung" standalone
-        2. Number + Keywords: "1 Introduction", "1\\nEinleitung", etc.
+        1. Number + Keywords: "1 Introduction", "1\\nEinleitung", etc.
+        2. Keywords only: "Introduction" or "Einleitung" standalone (fallback)
         3. Number + Any title: "1   Two Traditions" (up to ~80 chars)
         4. Below Abstract (placeholder)
         5. Below Keywords (placeholder)
@@ -57,10 +57,15 @@ def extract_main_content(raw_text: str) -> str:
 
     # === STEP 1: Find where main content STARTS ===
 
-    # Priority 1: Keywords only (standalone line)
+    # Priority 1: Number + Keywords combination (Introduction/Einleitung)
+    # Check these FIRST to capture the section number when present
     patterns_priority_1 = [
-        r'^Introduction\s*$',
-        r'^Einleitung\s*$',
+        r'^1\s*\n\s*Introduction',      # "1\nIntroduction"
+        r'^1\s*\n\s*Einleitung',        # "1\nEinleitung"
+        r'^1\.?\s+Introduction',         # "1 Introduction" or "1. Introduction"
+        r'^1\.?\s+Einleitung',           # "1 Einleitung" or "1. Einleitung"
+        r'^1:\s*Introduction',           # "1: Introduction"
+        r'^1:\s*Einleitung',             # "1: Einleitung"
     ]
 
     for pattern in patterns_priority_1:
@@ -69,15 +74,11 @@ def extract_main_content(raw_text: str) -> str:
             start_pos = match.start()
             break
 
-    # Priority 2: Number + Keywords combination (Introduction/Einleitung)
+    # Priority 2: Keywords only (standalone line) - fallback when no number present
     if start_pos is None:
         patterns_priority_2 = [
-            r'^1\s*\n\s*Introduction',      # "1\nIntroduction"
-            r'^1\s*\n\s*Einleitung',        # "1\nEinleitung"
-            r'^1\.?\s+Introduction',         # "1 Introduction" or "1. Introduction"
-            r'^1\.?\s+Einleitung',           # "1 Einleitung" or "1. Einleitung"
-            r'^1:\s*Introduction',           # "1: Introduction"
-            r'^1:\s*Einleitung',             # "1: Einleitung"
+            r'^Introduction\s*$',
+            r'^Einleitung\s*$',
         ]
 
         for pattern in patterns_priority_2:
@@ -90,7 +91,7 @@ def extract_main_content(raw_text: str) -> str:
     # Matches "1   Title Text" or "1\nTitle Text" where title is up to ~80 chars
     if start_pos is None:
         patterns_priority_3 = [
-            r'^1\.?\s{1,6}[A-ZÄÖÜ][^\n]{0,80}$',  # "1   Two Traditions" (same line)
+            r'^1\.?\s+[A-ZÄÖÜ][^\n]{0,80}$',  # "1   Two Traditions" (same line)
             r'^1\s*\n\s*[A-ZÄÖÜ][^\n]{0,80}$',    # "1\nTwo Traditions" (separate line)
         ]
 
