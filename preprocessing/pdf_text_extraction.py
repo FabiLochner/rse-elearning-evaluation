@@ -154,7 +154,9 @@ def extract_main_content(raw_text: str) -> str:
         start_pos = 0
 
     # === STEP 2: Find where main content ENDS (references section) ===
-    pattern_refs = r'(?:^\d+\s*\n)?^\s*(References|Literaturverzeichnis|Literatur|Bibliography)\d*\s*$' #relevant terms with possible whitespaces and footnote
+    # Matches: optional section number (separate/same line) + keyword + optional footnote
+    # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1"
+    pattern_refs = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Referenzen)\d*\s*$'
     match = re.search(pattern_refs, raw_text, re.MULTILINE | re.IGNORECASE)
     if match:
         end_pos = match.start()
@@ -183,7 +185,9 @@ def extract_references(raw_text: str) -> Optional[str]:
         References section text (without heading), or None if not found
     """
     # Find references section - match the heading line
-    pattern_refs_start = r'^\s*(References|Literaturverzeichnis|Literatur|Bibliography)\d*\s*$' #relevant terms with possible whitespaces and footnote
+    # Matches: optional section number (separate/same line) + keyword + optional footnote
+    # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1"
+    pattern_refs_start = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Referenzen)\d*\s*$'
     match = re.search(pattern_refs_start, raw_text, re.MULTILINE | re.IGNORECASE)
 
     if not match:
