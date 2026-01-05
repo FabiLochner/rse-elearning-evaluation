@@ -96,7 +96,11 @@ def extract_main_content(raw_text: str) -> str:
             remaining = raw_text[match.end():]
 
             # Strategy 1: Look for blank line followed by capital letter
-            next_para = re.search(r'\n\s*\n+\s*([A-ZÄÖÜ])', remaining)
+            next_para = re.search(
+                        r'\n\s*\n+\s*(?!Keywords|Key\s+words|Schlüsselwörter|Schlagwörter|Keyphrases|Key\s+phrases|Index\s+Terms|Suchbegriffe|Stichwörter|Indexbegriffe)([A-ZÄÖÜ])', # negative lookahead to skip Keywords variants in the blank-line detection pattern
+                        remaining,
+                        re.IGNORECASE
+                    )
             if next_para:
                 start_pos = match.end() + next_para.start(1)
 
