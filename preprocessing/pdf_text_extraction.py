@@ -58,15 +58,12 @@ def extract_main_content(raw_text: str) -> str:
 
     # === STEP 1: Find where main content STARTS ===
 
-    # Priority 1: Number + Keywords combination (Introduction/Einleitung)
+    # Priority 1: Number + relevant Keywords combination (e.g.,Introduction/Einleitung)
     # Check these FIRST to capture the section number when present
     patterns_priority_1 = [
-        r'^\s*1\s*\n\s*Introduction',      # " 1\nIntroduction" or "1\nIntroduction"
-        r'^\s*1\s*\n\s*Einleitung',        # " 1\nEinleitung" or "1\nEinleitung"
-        r'^\s*1\.?\s+Introduction',         # " 1 Introduction" or "1. Introduction"
-        r'^\s*1\.?\s+Einleitung',           # " 1 Einleitung" or "1. Einleitung"
-        r'^\s*1:\s*Introduction',           # " 1: Introduction" or "1: Introduction"
-        r'^\s*1:\s*Einleitung',             # " 1: Einleitung" or "1: Einleitung"
+        r'^\s*1\s*\n\s*(?:Introduction|Einleitung|Einführung|Background|Motivation|Hintergrund)',      # e.g., " 1\nIntroduction" or "1\nIntroduction"
+        r'^\s*1\.?\s+(?:Introduction|Einleitung|Einführung|Background|Motivation|Hintergrund)',         # e.g., " 1 Introduction" or "1. Introduction"
+        r'^\s*1:\s*(?:Introduction|Einleitung|Einführung|Background|Motivation|Hintergrund)',           # e.g., " 1: Introduction" or "1: Introduction"
     ]
 
     for pattern in patterns_priority_1:
@@ -78,10 +75,8 @@ def extract_main_content(raw_text: str) -> str:
     # Priority 2: Keywords only (standalone line) - fallback when no number present
     if start_pos is None:
         patterns_priority_2 = [
-            r'^Introduction\s*$',
-            r'^Einleitung\s*$',
-            r'^Introduction:\s*.+$',  # "Introduction: subtitle"
-            r'^Einleitung:\s*.+$',    # "Einleitung: subtitle"
+            r'(?:^Introduction|Einleitung|Einführung|Background|Motivation|Hintergrund)\s*$',
+            r'(?:^Introduction|Einleitung|Einführung|Background|Motivation|Hintergrund):\s*.+$',  # e.g., "Introduction: subtitle"
         ]
 
         for pattern in patterns_priority_2:
@@ -95,7 +90,7 @@ def extract_main_content(raw_text: str) -> str:
     # Strategy 2: Period-newline-capital detection with minimum distance safeguard
     if start_pos is None:
         # Match "Abstract:" or German equivalent "Zusammenfassung:"
-        pattern_abstract = r'^(?:Abstract|Zusammenfassung):\s*'
+        pattern_abstract = r'^(?:Abstract|Zusammenfassung|Kurzfassung|Summary|Résumé):\s*'
         match = re.search(pattern_abstract, raw_text, re.MULTILINE | re.IGNORECASE)
         if match:
             remaining = raw_text[match.end():]
@@ -127,7 +122,7 @@ def extract_main_content(raw_text: str) -> str:
     # Priority 4: Below Keywords - for papers where first section has no number
     if start_pos is None:
         # Find "Keywords:" line (English or German variants)
-        pattern_keywords = r'^(?:Keywords|Schlüsselwörter|Schlagwörter):\s*.+$'
+        pattern_keywords = r'^(?:Keywords|Key\s+words|Schlüsselwörter|Schlagwörter|Keyphrases|Key\s+phrases|Index\s+Terms|Suchbegriffe|Stichwörter|Indexbegriffe):\s*.+$'
         match = re.search(pattern_keywords, raw_text, re.MULTILINE | re.IGNORECASE)
         if match:
             # Find the next non-empty line after Keywords (starts with uppercase)
@@ -235,7 +230,7 @@ def extract_main_content(raw_text: str) -> str:
     # === STEP 2: Find where main content ENDS (references section) ===
     # Matches: optional section number (separate/same line) + keyword + optional footnote
     # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1", "Bibliografie"
-    pattern_refs = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen)\d*\s*$'
+    pattern_refs = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen|Quellenverzeichnis|Quellen|Reference\s+List)\d*\s*$'
     match = re.search(pattern_refs, raw_text, re.MULTILINE | re.IGNORECASE)
     if match:
         end_pos = match.start()
@@ -266,7 +261,7 @@ def extract_references(raw_text: str) -> Optional[str]:
     # Find references section - match the heading line
     # Matches: optional section number (separate/same line) + keyword + optional footnote
     # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1", "Bibliografie"
-    pattern_refs_start = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen)\d*\s*$'
+    pattern_refs_start = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen|Quellenverzeichnis|Quellen|Reference\s+List)\d*\s*$'
     match = re.search(pattern_refs_start, raw_text, re.MULTILINE | re.IGNORECASE)
 
     if not match:
