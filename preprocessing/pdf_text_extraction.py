@@ -60,12 +60,12 @@ def extract_main_content(raw_text: str) -> str:
     # Priority 1: Number + Keywords combination (Introduction/Einleitung)
     # Check these FIRST to capture the section number when present
     patterns_priority_1 = [
-        r'^1\s*\n\s*Introduction',      # "1\nIntroduction"
-        r'^1\s*\n\s*Einleitung',        # "1\nEinleitung"
-        r'^1\.?\s+Introduction',         # "1 Introduction" or "1. Introduction"
-        r'^1\.?\s+Einleitung',           # "1 Einleitung" or "1. Einleitung"
-        r'^1:\s*Introduction',           # "1: Introduction"
-        r'^1:\s*Einleitung',             # "1: Einleitung"
+        r'^\s*1\s*\n\s*Introduction',      # " 1\nIntroduction" or "1\nIntroduction"
+        r'^\s*1\s*\n\s*Einleitung',        # " 1\nEinleitung" or "1\nEinleitung"
+        r'^\s*1\.?\s+Introduction',         # " 1 Introduction" or "1. Introduction"
+        r'^\s*1\.?\s+Einleitung',           # " 1 Einleitung" or "1. Einleitung"
+        r'^\s*1:\s*Introduction',           # " 1: Introduction" or "1: Introduction"
+        r'^\s*1:\s*Einleitung',             # " 1: Einleitung" or "1: Einleitung"
     ]
 
     for pattern in patterns_priority_1:
@@ -90,11 +90,11 @@ def extract_main_content(raw_text: str) -> str:
                 break
 
     # Priority 3: Number + Any section title (for titles like "Two Traditions")
-    # Matches "1   Title Text" or "1\nTitle Text" where title is up to ~80 chars
+    # Matches " 1   Title Text" or " 1\nTitle Text" where title is up to ~80 chars
     if start_pos is None:
         patterns_priority_3 = [
-            r'^1\.?\s+[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # e.g., "1   Two Traditions" (same line), but also sections starting with lowercase
-            r'^1\s*\n\s*[A-Za-zÄÖÜäöü][^\n]{0,80}$',    # e.g., "1\nTwo Traditions" (separate line) but also sections starting with lowercase
+            r'^\s*1\.?\s+[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # e.g., " 1   Two Traditions" or "1. Title" (same line)
+            r'^\s*1\s*\n\s*[A-Za-zÄÖÜäöü][^\n]{0,80}$',    # e.g., " 1\nTwo Traditions" (separate line)
         ]
 
         for pattern in patterns_priority_3:
@@ -155,8 +155,8 @@ def extract_main_content(raw_text: str) -> str:
 
     # === STEP 2: Find where main content ENDS (references section) ===
     # Matches: optional section number (separate/same line) + keyword + optional footnote
-    # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1"
-    pattern_refs = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Referenzen)\d*\s*$'
+    # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1", "Bibliografie"
+    pattern_refs = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen)\d*\s*$'
     match = re.search(pattern_refs, raw_text, re.MULTILINE | re.IGNORECASE)
     if match:
         end_pos = match.start()
@@ -186,8 +186,8 @@ def extract_references(raw_text: str) -> Optional[str]:
     """
     # Find references section - match the heading line
     # Matches: optional section number (separate/same line) + keyword + optional footnote
-    # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1"
-    pattern_refs_start = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Referenzen)\d*\s*$'
+    # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1", "Bibliografie"
+    pattern_refs_start = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen)\d*\s*$'
     match = re.search(pattern_refs_start, raw_text, re.MULTILINE | re.IGNORECASE)
 
     if not match:
