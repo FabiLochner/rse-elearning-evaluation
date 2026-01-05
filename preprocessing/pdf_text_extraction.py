@@ -43,15 +43,16 @@ def extract_main_content(raw_text: str) -> str:
     Pattern Hierarchy:
         1. Number + Keywords: "1 Introduction", "1\\nEinleitung", etc.
         2. Keywords only: "Introduction" or "Einleitung" standalone (fallback)
-        3. Number + Any title: "1   Two Traditions" (up to ~80 chars)
+        3. Below Abstract: paragraph after "Abstract:" when no Keywords exist
         4. Below Keywords: line after "Keywords:" for papers without numbered sections
-        5. Below Abstract: paragraph after "Abstract:" when no Keywords exist
+        5. Number + Any title: "1   Two Traditions" (up to ~80 chars)
+        6. After author/affiliation: for short papers without standard sections
 
     Args:
         raw_text: Full text extracted from PDF
 
     Returns:
-        Main content text between start and references section
+        Main content text between start and references section, or None if no structure detected
     """
     start_pos = None
 
@@ -89,33 +90,7 @@ def extract_main_content(raw_text: str) -> str:
                 start_pos = match.start()
                 break
 
-    # Priority 3: Number + Any section title (for titles like "Two Traditions")
-    # Matches " 1   Title Text" or " 1\nTitle Text" where title is up to ~80 chars
-    if start_pos is None:
-        patterns_priority_3 = [
-            r'^\s*1\.?\s+[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # e.g., " 1   Two Traditions" or "1. Title" (same line)
-            r'^\s*1\s*\n\s*[A-Za-zÄÖÜäöü][^\n]{0,80}$',    # e.g., " 1\nTwo Traditions" (separate line)
-        ]
-
-        for pattern in patterns_priority_3:
-            match = re.search(pattern, raw_text, re.MULTILINE)
-            if match:
-                start_pos = match.start()
-                break
-
-    # Priority 4: Below Keywords - for papers where first section has no number
-    if start_pos is None:
-        # Find "Keywords:" line (English or German variants)
-        pattern_keywords = r'^(?:Keywords|Schlüsselwörter|Schlagwörter):\s*.+$'
-        match = re.search(pattern_keywords, raw_text, re.MULTILINE | re.IGNORECASE)
-        if match:
-            # Find the next non-empty line after Keywords (starts with uppercase)
-            remaining_text = raw_text[match.end():]
-            next_line_match = re.search(r'^\s*[A-ZÄÖÜ][^\n]+$', remaining_text, re.MULTILINE)
-            if next_line_match:
-                start_pos = match.end() + next_line_match.start()
-
-    # Priority 5: Below Abstract - for papers with abstract but no Keywords/Introduction
+    # Priority 3: Below Abstract - for papers with abstract but no Keywords/Introduction
     # Strategy 1: Blank-line detection (paragraph break after Abstract)
     # Strategy 2: Period-newline-capital detection with minimum distance safeguard
     if start_pos is None:
@@ -148,6 +123,110 @@ def extract_main_content(raw_text: str) -> str:
                     para_break = re.search(r'\.\n([A-ZÄÖÜ])', remaining)
                     if para_break:
                         start_pos = match.end() + para_break.start(1)
+
+    # Priority 4: Below Keywords - for papers where first section has no number
+    if start_pos is None:
+        # Find "Keywords:" line (English or German variants)
+        pattern_keywords = r'^(?:Keywords|Schlüsselwörter|Schlagwörter):\s*.+$'
+        match = re.search(pattern_keywords, raw_text, re.MULTILINE | re.IGNORECASE)
+        if match:
+            # Find the next non-empty line after Keywords (starts with uppercase)
+            remaining_text = raw_text[match.end():]
+            next_line_match = re.search(r'^\s*[A-ZÄÖÜ][^\n]+$', remaining_text, re.MULTILINE)
+            if next_line_match:
+                start_pos = match.end() + next_line_match.start()
+
+    # Priority 5: Number + Any section title (for titles like "Two Traditions")
+    # Matches " 1   Title Text" or " 1\nTitle Text" where title is up to ~80 chars
+    if start_pos is None:
+        patterns_priority_5 = [
+            r'^\s*1\.?\s+[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # e.g., " 1   Two Traditions" or "1. Title" (same line)
+            r'^\s*1\s*\n\s*[A-Za-zÄÖÜäöü][^\n]{0,80}$',    # e.g., " 1\nTwo Traditions" (separate line)
+        ]
+
+        for pattern in patterns_priority_5:
+            match = re.search(pattern, raw_text, re.MULTILINE)
+            if match:
+                start_pos = match.start()
+                break
+
+    # # Priority 6: After author/affiliation - for short papers without sections
+    # # Only executes if all other patterns (1-5) have failed
+    # if start_pos is None:
+    #     # Keywords that indicate institutional affiliations (German focus)
+    #     institution_keywords = [
+    #         'universität', 'hochschule', 'institut', 'fakultät',
+    #         'university', 'institute', 'faculty', 'department',
+    #         'fachbereich', 'arbeitsbereich', 'lehrstuhl'
+    #     ]
+
+    #     # Split text into lines for analysis
+    #     lines = raw_text.split('\n')
+
+    #     # Track position in raw text
+    #     char_position = 0
+
+    #     # Only search in first 25% of document (avoid catching mid-body text)
+    #     search_limit = len(raw_text) // 4
+
+    #     for i, line in enumerate(lines):
+    #         line_stripped = line.strip()
+
+    #         # Skip empty lines
+    #         if not line_stripped:
+    #             char_position += len(line) + 1  # +1 for newline
+    #             continue
+
+    #         # Check if we've exceeded search limit (past first 25% of document)
+    #         if char_position > search_limit:
+    #             break
+
+    #         # Skip lines with email addresses (author contact info)
+    #         if '@' in line_stripped:
+    #             char_position += len(line) + 1
+    #             continue
+
+    #         # Skip lines with institutional keywords (affiliations)
+    #         if any(keyword in line_stripped.lower() for keyword in institution_keywords):
+    #             char_position += len(line) + 1
+    #             continue
+
+    #         # Skip very short lines (likely titles, names, or section numbers)
+    #         if len(line_stripped) < 40:
+    #             char_position += len(line) + 1
+    #             continue
+
+    #         # Check if line looks like a substantial paragraph
+    #         # Criterion 1: Line is long enough (> 100 chars)
+    #         is_long_enough = len(line_stripped) > 100
+
+    #         # Criterion 2: Line contains multiple sentences (period + space + capital)
+    #         # Pattern: ". A" or ". D" etc. (sentence boundary within line)
+    #         has_multiple_sentences = bool(re.search(r'\.\s+[A-ZÄÖÜ]', line_stripped))
+
+    #         # Criterion 3: Line starts with capital letter (German/English)
+    #         starts_with_capital = line_stripped[0].isupper()
+
+    #         # If line meets criteria for "substantial paragraph"
+    #         if starts_with_capital and (is_long_enough or has_multiple_sentences):
+    #             # Additional validation: check if next line continues (not isolated line)
+    #             if i + 1 < len(lines):
+    #                 next_line = lines[i + 1].strip()
+    #                 # If next line is also substantial (not empty, not very short)
+    #                 if len(next_line) > 30:
+    #                     # Found start of main content
+    #                     start_pos = char_position
+    #                     break
+    #             else:
+    #                 # Last line case: accept if it's very long
+    #                 if len(line_stripped) > 150:
+    #                     start_pos = char_position
+    #                     break
+
+    #         char_position += len(line) + 1
+
+    #     # Conservative approach: if uncertain, leave start_pos = None
+    #     # (will return None below instead of guessing)
 
     # Fallback: start from beginning if no pattern found
     if start_pos is None:
