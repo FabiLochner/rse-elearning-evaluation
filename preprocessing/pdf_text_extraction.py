@@ -44,8 +44,8 @@ def extract_main_content(raw_text: str) -> str:
         1. Number + Keywords: "1 Introduction", "1\\nEinleitung", etc.
         2. Keywords only: "Introduction" or "Einleitung" standalone (fallback)
         3. Number + Any title: "1   Two Traditions" (up to ~80 chars)
-        4. Below Abstract (placeholder)
-        5. Below Keywords: line after "Keywords:" for papers without numbered sections
+        4. Below Keywords: line after "Keywords:" for papers without numbered sections
+        5. Below Abstract: paragraph after "Abstract:" when no Keywords exist
 
     Args:
         raw_text: Full text extracted from PDF
@@ -103,11 +103,7 @@ def extract_main_content(raw_text: str) -> str:
                 start_pos = match.start()
                 break
 
-    # Priority 4: Below Abstract (placeholder - not implemented yet)
-    # if start_pos is None:
-    #     pass
-
-    # Priority 5: Below Keywords - for papers where first section has no number
+    # Priority 4: Below Keywords - for papers where first section has no number
     if start_pos is None:
         # Find "Keywords:" line (English or German variants)
         pattern_keywords = r'^(?:Keywords|Schlüsselwörter|Schlagwörter):\s*.+$'
@@ -118,6 +114,40 @@ def extract_main_content(raw_text: str) -> str:
             next_line_match = re.search(r'^\s*[A-ZÄÖÜ][^\n]+$', remaining_text, re.MULTILINE)
             if next_line_match:
                 start_pos = match.end() + next_line_match.start()
+
+    # Priority 5: Below Abstract - for papers with abstract but no Keywords/Introduction
+    # Strategy 1: Blank-line detection (paragraph break after Abstract)
+    # Strategy 2: Period-newline-capital detection with minimum distance safeguard
+    if start_pos is None:
+        # Match "Abstract:" or German equivalent "Zusammenfassung:"
+        pattern_abstract = r'^(?:Abstract|Zusammenfassung):\s*'
+        match = re.search(pattern_abstract, raw_text, re.MULTILINE | re.IGNORECASE)
+        if match:
+            remaining = raw_text[match.end():]
+
+            # Strategy 1: Look for blank line followed by capital letter
+            next_para = re.search(r'\n\s*\n+\s*([A-ZÄÖÜ])', remaining)
+            if next_para:
+                start_pos = match.end() + next_para.start(1)
+
+            # Strategy 2: Period + newline + capital, with minimum distance safeguard
+            # Abstracts are typically 75-300 words (~400-1800 chars)
+            # We use a minimum threshold to avoid catching sentence breaks within the abstract
+            if start_pos is None:
+                MIN_ABSTRACT_CHARS = 400  # ~75 words minimum abstract length
+
+                # Step 2a: Look for pattern AFTER minimum threshold (handles medium/long abstracts)
+                if len(remaining) > MIN_ABSTRACT_CHARS:
+                    search_region = remaining[MIN_ABSTRACT_CHARS:]
+                    para_break = re.search(r'\.\n([A-ZÄÖÜ])', search_region)
+                    if para_break:
+                        start_pos = match.end() + MIN_ABSTRACT_CHARS + para_break.start(1)
+
+                # Step 2b: Fallback for very short abstracts (< 75 words)
+                if start_pos is None:
+                    para_break = re.search(r'\.\n([A-ZÄÖÜ])', remaining)
+                    if para_break:
+                        start_pos = match.end() + para_break.start(1)
 
     # Fallback: start from beginning if no pattern found
     if start_pos is None:
