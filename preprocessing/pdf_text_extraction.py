@@ -89,39 +89,53 @@ def extract_main_content(raw_text: str) -> str:
     # Strategy 1: Blank-line detection (paragraph break after Abstract)
     # Strategy 2: Period-newline-capital detection with minimum distance safeguard
     if start_pos is None:
-        # Match "Abstract:" or German equivalent "Zusammenfassung:"
-        pattern_abstract = r'^(?:Abstract|Zusammenfassung|Kurzfassung|Summary|Résumé):\s*'
-        match = re.search(pattern_abstract, raw_text, re.MULTILINE | re.IGNORECASE)
-        if match:
-            remaining = raw_text[match.end():]
+        has_keywords = re.search(r'^(?:Keywords|Key\s+words|Schlüsselwörter|Schlagwörter|Keyphrases|Key\s+phrases|Index\s+Terms|Suchbegriffe|Stichwörter|Indexbegriffe):\s*', raw_text, re.MULTILINE | re.IGNORECASE) #look whether there are keywords below the abstract
+        if not has_keywords: # Only execute if paper lacks keywords (if it has keywords go to priority 4)
 
-            # Strategy 1: Look for blank line followed by capital letter
-            next_para = re.search(
-                        r'\n\s*\n+\s*(?!Keywords|Key\s+words|Schlüsselwörter|Schlagwörter|Keyphrases|Key\s+phrases|Index\s+Terms|Suchbegriffe|Stichwörter|Indexbegriffe)([A-ZÄÖÜ])', # negative lookahead to skip Keywords variants in the blank-line detection pattern
-                        remaining,
-                        re.IGNORECASE
-                    )
-            if next_para:
-                start_pos = match.end() + next_para.start(1)
+            # Match "Abstract:" or German equivalent "Zusammenfassung:"
+            pattern_abstract = r'^(?:Abstract|Zusammenfassung|Kurzfassung|Summary|Résumé):\s*'
+            match = re.search(pattern_abstract, raw_text, re.MULTILINE | re.IGNORECASE)
+            if match:
+                remaining = raw_text[match.end():]
 
-            # Strategy 2: Period + newline + capital, with minimum distance safeguard
-            # Abstracts are typically 75-300 words (~400-1800 chars)
-            # We use a minimum threshold to avoid catching sentence breaks within the abstract
-            if start_pos is None:
-                MIN_ABSTRACT_CHARS = 400  # ~75 words minimum abstract length
+                # Strategy 1: Look for numbered section first (e.g., "1 Title" or "1\nTitle") -> same regex patterns used as in Priority 5 below
+                patterns_numbered = [
+                    r'^\s*1\.?\s+[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # "1   Title" or "1. Title"
+                    r'^\s*1\s*\n\s*[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # "1\nTitle"
+                ]
+                for pattern in patterns_numbered:
+                    match_num = re.search(pattern, remaining, re.MULTILINE)
+                    if match_num:
+                        start_pos = match.end() + match_num.start()
+                        break
 
-                # Step 2a: Look for pattern AFTER minimum threshold (handles medium/long abstracts)
-                if len(remaining) > MIN_ABSTRACT_CHARS:
-                    search_region = remaining[MIN_ABSTRACT_CHARS:]
-                    para_break = re.search(r'\.\n([A-ZÄÖÜ])', search_region)
-                    if para_break:
-                        start_pos = match.end() + MIN_ABSTRACT_CHARS + para_break.start(1)
+                # Strategy 2: Look for blank line followed by capital letter (only if Strategy 1 fails)
+                next_para = re.search(
+                            r'\n\s*\n+\s*(?!Keywords|Key\s+words|Schlüsselwörter|Schlagwörter|Keyphrases|Key\s+phrases|Index\s+Terms|Suchbegriffe|Stichwörter|Indexbegriffe)([A-ZÄÖÜ])', # negative lookahead to skip Keywords variants in the blank-line detection pattern
+                            remaining,
+                            re.IGNORECASE
+                        )
+                if next_para:
+                    start_pos = match.end() + next_para.start(1)
 
-                # Step 2b: Fallback for very short abstracts (< 75 words)
+                # Strategy 3: Period + newline + capital, with minimum distance safeguard (if Strategy 1 and 2 fail)
+                # Abstracts are typically 75-300 words (~400-1800 chars)
+                # We use a minimum threshold to avoid catching sentence breaks within the abstract
                 if start_pos is None:
-                    para_break = re.search(r'\.\n([A-ZÄÖÜ])', remaining)
-                    if para_break:
-                        start_pos = match.end() + para_break.start(1)
+                    MIN_ABSTRACT_CHARS = 400  # ~75 words minimum abstract length
+
+                    # Step 2a: Look for pattern AFTER minimum threshold (handles medium/long abstracts)
+                    if len(remaining) > MIN_ABSTRACT_CHARS:
+                        search_region = remaining[MIN_ABSTRACT_CHARS:]
+                        para_break = re.search(r'\.\n([A-ZÄÖÜ])', search_region)
+                        if para_break:
+                            start_pos = match.end() + MIN_ABSTRACT_CHARS + para_break.start(1)
+
+                    # Step 2b: Fallback for very short abstracts (< 75 words)
+                    if start_pos is None:
+                        para_break = re.search(r'\.\n([A-ZÄÖÜ])', remaining)
+                        if para_break:
+                            start_pos = match.end() + para_break.start(1)
 
     # Priority 4: Below Keywords - for papers where first section has no number
     if start_pos is None:
@@ -129,11 +143,22 @@ def extract_main_content(raw_text: str) -> str:
         pattern_keywords = r'^(?:Keywords|Key\s+words|Schlüsselwörter|Schlagwörter|Keyphrases|Key\s+phrases|Index\s+Terms|Suchbegriffe|Stichwörter|Indexbegriffe):\s*.+$'
         match = re.search(pattern_keywords, raw_text, re.MULTILINE | re.IGNORECASE)
         if match:
-            # Find the next non-empty line after Keywords (starts with uppercase)
             remaining_text = raw_text[match.end():]
-            next_line_match = re.search(r'^\s*[A-ZÄÖÜ][^\n]+$', remaining_text, re.MULTILINE)
-            if next_line_match:
-                start_pos = match.end() + next_line_match.start()
+             # Strategy 1: Look for numbered section first (e.g., "1 Title" or "1\nTitle") -> same regex patterns used as in Priority 5 below
+            patterns_numbered = [
+                r'^\s*1\.?\s+[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # "1   Title" or "1. Title"
+                r'^\s*1\s*\n\s*[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # "1\nTitle"
+            ]
+            for pattern in patterns_numbered:
+                match_num = re.search(pattern, remaining_text, re.MULTILINE)
+                if match_num:
+                    start_pos = match.end() + match_num.start()
+                    break
+            # Strategy 2: Find the next non-empty line after Keywords (starts with uppercase)
+            if start_pos is None: #only runs if Strategy 1 was not successful
+                next_line_match = re.search(r'^\s*[A-ZÄÖÜ][^\n]+$', remaining_text, re.MULTILINE)
+                if next_line_match:
+                    start_pos = match.end() + next_line_match.start()
 
     # Priority 5: Number + Any section title (for titles like "Two Traditions")
     # Matches " 1   Title Text" or " 1\nTitle Text" where title is up to ~80 chars
