@@ -77,6 +77,7 @@ def extract_main_content(raw_text: str) -> str:
         patterns_priority_2 = [
             r'(?:^Introduction|Einleitung|Einführung)\s*$',
             r'(?:^Introduction|Einleitung|Einführung):\s*.+$',  # e.g., "Introduction: subtitle"
+            r'(?:^Introduction|Einleitung|Einführung)[\s–—-]+.+$',  # e.g., "Einleitung – Die chinesisch-deutsche..." (handles em-dash, en-dash, hyphen)
         ]
 
         for pattern in patterns_priority_2:
