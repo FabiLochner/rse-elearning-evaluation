@@ -75,8 +75,8 @@ def extract_main_content(raw_text: str) -> str:
     # Priority 2: Keywords only (standalone line) - fallback when no number present
     if start_pos is None:
         patterns_priority_2 = [
-            r'(?:^Introduction|Einleitung|Einführung|Background|Motivation|Hintergrund)\s*$',
-            r'(?:^Introduction|Einleitung|Einführung|Background|Motivation|Hintergrund):\s*.+$',  # e.g., "Introduction: subtitle"
+            r'(?:^Introduction|Einleitung|Einführung)\s*$',
+            r'(?:^Introduction|Einleitung|Einführung):\s*.+$',  # e.g., "Introduction: subtitle"
         ]
 
         for pattern in patterns_priority_2:
