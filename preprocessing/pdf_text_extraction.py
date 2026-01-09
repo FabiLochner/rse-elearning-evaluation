@@ -262,6 +262,19 @@ def extract_main_content(raw_text: str) -> str:
     # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1", "Bibliografie"
     pattern_refs = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen|Quellenverzeichnis|Quellen|Reference\s+List)\d*\s*$'
     match = re.search(pattern_refs, raw_text, re.MULTILINE | re.IGNORECASE)
+
+    # Position constraint: references must be in last 50% of document to avoid false positives
+    # (e.g., "aus Vorlesungen und Literatur in der Regel" in body text)
+    text_length = len(raw_text)
+    min_position = int(text_length * 0.50)
+
+    # Find first match in last 50% of document
+    match = None
+    for m in re.finditer(pattern_refs, raw_text, re.MULTILINE | re.IGNORECASE):
+        if m.start() >= min_position:
+            match = m
+            break
+
     if match:
         end_pos = match.start()
     else:
@@ -293,6 +306,19 @@ def extract_references(raw_text: str) -> Optional[str]:
     # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1", "Bibliografie"
     pattern_refs_start = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen|Quellenverzeichnis|Quellen|Reference\s+List)\d*\s*$'
     match = re.search(pattern_refs_start, raw_text, re.MULTILINE | re.IGNORECASE)
+
+    # Position constraint: references must be in last 50% of document to avoid false positives
+    # (e.g., "aus Vorlesungen und Literatur in der Regel" in body text)
+    text_length = len(raw_text)
+    min_position = int(text_length * 0.50)  # Must be in last 30%
+
+    # Find first match in last 50% of document
+    match = None
+    for m in re.finditer(pattern_refs_start, raw_text, re.MULTILINE | re.IGNORECASE):
+        if m.start() >= min_position:
+            match = m
+            break
+
 
     if not match:
         return None
