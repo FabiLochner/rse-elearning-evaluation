@@ -310,19 +310,41 @@ def extract_main_content(raw_text: str) -> Optional[str]:
     # Matches: optional section number (separate/same line) + keyword + optional footnote
     # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1", "Bibliografie"
     pattern_refs = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen|Quellenverzeichnis|Quellen|Reference\s+List)\d*\s*$'
-    match = re.search(pattern_refs, raw_text, re.MULTILINE | re.IGNORECASE)
+    #match = re.search(pattern_refs, raw_text, re.MULTILINE | re.IGNORECASE)
 
     # Position constraint: references must be in last 50% of document to avoid false positives
     # (e.g., "aus Vorlesungen und Literatur in der Regel" in body text)
     text_length = len(raw_text)
     min_position = int(text_length * 0.50)
 
-    # Find first match in last 50% of document
+    # Find ALL candidate reference headings in last 50% of document
+    candidates = [
+        m for m in re.finditer(pattern_refs, raw_text, re.MULTILINE | re.IGNORECASE)
+        if m.start() >= min_position
+    ]
+
+    # DeLFI-style reference entry validation:
+    # e.g. [BBS01], [HKN01], [Ka93]
+    DELFI_REF_ENTRY_RE = r'\s*\[(?:[A-Za-z]{2,4}|[A-Z][a-z]{1,2})\d{2}\]'
+
     match = None
-    for m in re.finditer(pattern_refs, raw_text, re.MULTILINE | re.IGNORECASE):
-        if m.start() >= min_position:
+
+    # Prefer the LAST valid references section
+    for m in reversed(candidates):
+        # Look shortly AFTER the heading
+        sample = raw_text[m.end(): min(len(raw_text), m.end() + 1500)]
+
+        # Validate that real DeLFI references follow
+        if re.search(DELFI_REF_ENTRY_RE, sample):
             match = m
             break
+
+    # # Find first match in last 50% of document
+    # match = None
+    # for m in re.finditer(pattern_refs, raw_text, re.MULTILINE | re.IGNORECASE):
+    #     if m.start() >= min_position:
+    #         match = m
+    #         break
 
     if match:
         end_pos = match.start()
@@ -358,19 +380,35 @@ def extract_references(raw_text: str) -> Optional[str]:
     # Matches: optional section number (separate/same line) + keyword + optional footnote
     # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1", "Bibliografie"
     pattern_refs_start = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen|Quellenverzeichnis|Quellen|Reference\s+List)\d*\s*$'
-    match = re.search(pattern_refs_start, raw_text, re.MULTILINE | re.IGNORECASE)
+    #match = re.search(pattern_refs_start, raw_text, re.MULTILINE | re.IGNORECASE)
 
     # Position constraint: references must be in last 50% of document to avoid false positives
     # (e.g., "aus Vorlesungen und Literatur in der Regel" in body text)
     text_length = len(raw_text)
     min_position = int(text_length * 0.50)  # Must be in last 50%
 
-    # Find first match in last 50% of document
+    # Find all candidate reference headings in last 50%
+    candidates = [
+        m for m in re.finditer(pattern_refs_start, raw_text, re.MULTILINE | re.IGNORECASE)
+        if m.start() >= min_position
+    ]
+
+    # DeLFI-style reference entry pattern
+    DELFI_REF_ENTRY_RE = r'\s*\[(?:[A-Za-z]{2,4}|[A-Z][a-z]{1,2})\d{2}\]'
+
     match = None
-    for m in re.finditer(pattern_refs_start, raw_text, re.MULTILINE | re.IGNORECASE):
-        if m.start() >= min_position:
+    for m in reversed(candidates):
+        sample = raw_text[m.end(): min(len(raw_text), m.end() + 1500)]
+        if re.search(DELFI_REF_ENTRY_RE, sample):
             match = m
             break
+
+    # # Find first match in last 50% of document
+    # match = None
+    # for m in re.finditer(pattern_refs_start, raw_text, re.MULTILINE | re.IGNORECASE):
+    #     if m.start() >= min_position:
+    #         match = m
+    #         break
 
 
     if not match:
