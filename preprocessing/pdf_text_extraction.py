@@ -144,9 +144,9 @@ def extract_main_content(raw_text: str) -> Optional[str]:
             offset = 0
 
         patterns_priority_2 = [
-            r'(?:^Introduction|Einleitung|Einführung)\s*$',
-            r'(?:^Introduction|Einleitung|Einführung):\s*.+$',  # e.g., "Introduction: subtitle"
-            r'(?:^Introduction|Einleitung|Einführung)[\s–—-]+.{1,50}$',  # e.g., "Einleitung – Die chinesisch-deutsche..." (handles em-dash, en-dash, hyphen); Added a length limit to match intro headers but no text in the main body
+            r'^\s*(?:Introduction|Einleitung|Einführung)\s*$',  # Allow leading/trailing whitespace
+            r'^\s*(?:Introduction|Einleitung|Einführung):\s*.+$',  # e.g., "Introduction: subtitle"
+            r'^\s*(?:Introduction|Einleitung|Einführung)[\s–—-]+.{1,50}$',  # e.g., "Einleitung – Die chinesisch-deutsche..." (handles em-dash, en-dash, hyphen); Added a length limit to match intro headers but no text in the main body
         ]
 
         for pattern in patterns_priority_2:
