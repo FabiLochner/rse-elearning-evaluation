@@ -36,7 +36,50 @@ def extract_text_from_pdf(pdf_path: Path | str) -> str:
     return text
 
 
-def extract_main_content(raw_text: str) -> str:
+def _is_corrupted_text(text: str, sample_size: int = 2000) -> bool:
+    """
+    Detect if extracted PDF text is corrupted/garbled.
+
+    Internal helper function that checks text quality using heuristics:
+    - Alphabetic character ratio (should be > 30% for German/English text)
+    - Control character ratio (should be < 20%, excluding newlines/tabs)
+
+    Args:
+        text: Raw text extracted from PDF
+        sample_size: Number of characters to sample for analysis (default: 2000)
+
+    Returns:
+        True if text appears corrupted, False otherwise
+
+    Examples of corrupted text:
+        - "\\x1aE2F1C $ \\x05.3 \\x17.0.-\\x1c\\x1a"
+        - ".">C"? \\x01FC4>"3I">0L"F*"
+    """
+    if len(text) == 0:
+        return True
+
+    # Sample from beginning (most indicative)
+    sample = text[:min(sample_size, len(text))]
+
+    # Count character categories
+    total_chars = len(sample)
+    alphabetic = sum(1 for c in sample if c.isalpha())
+    control_chars = sum(1 for c in sample if ord(c) < 32 and c not in '\n\r\t')
+
+    # Calculate proportions
+    alpha_ratio = alphabetic / total_chars
+    control_ratio = control_chars / total_chars
+
+    # Thresholds based on expected German/English text (40-60% alphabetic)
+    if alpha_ratio < 0.30:  # Less than 30% alphabetic
+        return True
+    if control_ratio > 0.20:  # More than 20% control characters
+        return True
+
+    return False
+
+
+def extract_main_content(raw_text: str) -> Optional[str]:
     """
     Extract main text content (between intro section and references).
 
@@ -54,6 +97,12 @@ def extract_main_content(raw_text: str) -> str:
     Returns:
         Main content text between start and references section, or None if no structure detected
     """
+    # Check for corrupted text FIRST (before any pattern matching)
+    if _is_corrupted_text(raw_text):
+        print("WARNING: Corrupted PDF text detected (garbled encoding, missing CMap, or font issues).")
+        print("         Extraction not possible. Returning None.")
+        return None
+
     start_pos = None
 
     # === STEP 1: Find where main content STARTS ===
@@ -301,6 +350,10 @@ def extract_references(raw_text: str) -> Optional[str]:
     Returns:
         References section text (without heading), or None if not found
     """
+    # Check for corrupted text FIRST (before any pattern matching)
+    if _is_corrupted_text(raw_text):
+        return None
+
     # Find references section - match the heading line
     # Matches: optional section number (separate/same line) + keyword + optional footnote
     # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1", "Bibliografie"
@@ -310,7 +363,7 @@ def extract_references(raw_text: str) -> Optional[str]:
     # Position constraint: references must be in last 50% of document to avoid false positives
     # (e.g., "aus Vorlesungen und Literatur in der Regel" in body text)
     text_length = len(raw_text)
-    min_position = int(text_length * 0.50)  # Must be in last 30%
+    min_position = int(text_length * 0.50)  # Must be in last 50%
 
     # Find first match in last 50% of document
     match = None
