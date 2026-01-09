@@ -123,16 +123,36 @@ def extract_main_content(raw_text: str) -> Optional[str]:
 
     # Priority 2: Keywords only (standalone line) - fallback when no number present
     if start_pos is None:
+        # Position constraint to avoid matching keywords in body text
+        # (e.g., "Einführung der Lernplattform" in middle of document)
+        # Strategy: Search in a limited region near the document start
+
+        # Check if Abstract exists to define search region
+        pattern_abstract_check = r'^(?:Abstract|Zusammenfassung|Kurzfassung|Summary|Résumé):\s*'
+        abstract_check = re.search(pattern_abstract_check, raw_text, re.MULTILINE | re.IGNORECASE)
+
+        if abstract_check:
+            # If Abstract exists, search only in first 2000 chars after Abstract
+            # (covers typical abstract + introduction header for both short and long papers)
+            search_start = abstract_check.start()
+            search_end = min(len(raw_text), abstract_check.start() + 2000)
+            search_region = raw_text[search_start:search_end]
+            offset = search_start
+        else:
+            # If no Abstract, also search in first 2000 chars of document
+            search_region = raw_text[:2000]
+            offset = 0
+
         patterns_priority_2 = [
             r'(?:^Introduction|Einleitung|Einführung)\s*$',
             r'(?:^Introduction|Einleitung|Einführung):\s*.+$',  # e.g., "Introduction: subtitle"
-            r'(?:^Introduction|Einleitung|Einführung)[\s–—-]+.+$',  # e.g., "Einleitung – Die chinesisch-deutsche..." (handles em-dash, en-dash, hyphen)
+            r'(?:^Introduction|Einleitung|Einführung)[\s–—-]+.{1,50}$',  # e.g., "Einleitung – Die chinesisch-deutsche..." (handles em-dash, en-dash, hyphen); Added a length limit to match intro headers but no text in the main body
         ]
 
         for pattern in patterns_priority_2:
-            match = re.search(pattern, raw_text, re.MULTILINE | re.IGNORECASE)
+            match = re.search(pattern, search_region, re.MULTILINE | re.IGNORECASE)
             if match:
-                start_pos = match.start()
+                start_pos = offset + match.start()
                 break
 
     # Priority 3: Below Abstract - for papers with abstract but no Keywords/Introduction
@@ -160,13 +180,14 @@ def extract_main_content(raw_text: str) -> Optional[str]:
                         break
 
                 # Strategy 2: Look for blank line followed by capital letter (only if Strategy 1 fails)
-                next_para = re.search(
-                            r'\n\s*\n+\s*(?!Keywords|Key\s+words|Schlüsselwörter|Schlagwörter|Keyphrases|Key\s+phrases|Index\s+Terms|Suchbegriffe|Stichwörter|Indexbegriffe)([A-ZÄÖÜ])', # negative lookahead to skip Keywords variants in the blank-line detection pattern
-                            remaining,
-                            re.IGNORECASE
-                        )
-                if next_para:
-                    start_pos = match.end() + next_para.start(1)
+                if start_pos is None:
+                    next_para = re.search(
+                                r'\n\s*\n+\s*(?!Keywords|Key\s+words|Schlüsselwörter|Schlagwörter|Keyphrases|Key\s+phrases|Index\s+Terms|Suchbegriffe|Stichwörter|Indexbegriffe)([A-ZÄÖÜ])', # negative lookahead to skip Keywords variants in the blank-line detection pattern
+                                remaining,
+                                re.IGNORECASE
+                            )
+                    if next_para:
+                        start_pos = match.end() + next_para.start(1)
 
                 # Strategy 3: Period + newline + capital, with minimum distance safeguard (if Strategy 1 and 2 fail)
                 # Abstracts are typically 75-300 words (~400-1800 chars)
