@@ -344,9 +344,15 @@ def extract_main_content(raw_text: str) -> Optional[str]:
         if m.start() >= min_position
     ]
 
-    # DeLFI-style reference entry validation:
-    # e.g. [BBS01], [HKN01], [Ka93]
-    DELFI_REF_ENTRY_RE = r'\s*\[(?:[A-Za-z]{2,4}|[A-Z][a-z]{1,2})\d{2}\]'
+    # Reference entry validation: Support multiple citation styles
+    # Style 1: DeLFI-style [BBS01], [HKN01], [Ka93]
+    # Style 2: Numeric [1], [2], [123]
+    # Style 3: Author-year without brackets: Bruner, J.S. (1961)
+    REFERENCE_PATTERNS = [
+        r'\s*\[(?:[A-Za-z]{2,4}|[A-Z][a-z]{1,2})\d{2}\]',  # DeLFI-style
+        r'^\s*\[\d{1,3}\]',  # Numeric style
+        r'^[A-ZÄÖÜ][a-zäöüß]+,\s+[A-Z].*?\(\d{4}\)',  # Author-year style
+    ]
 
     match = None
 
@@ -355,8 +361,9 @@ def extract_main_content(raw_text: str) -> Optional[str]:
         # Look shortly AFTER the heading
         sample = raw_text[m.end(): min(len(raw_text), m.end() + 1500)]
 
-        # Validate that real DeLFI references follow
-        if re.search(DELFI_REF_ENTRY_RE, sample):
+        # Validate that real references follow (check all patterns)
+        is_valid = any(re.search(pattern, sample, re.MULTILINE) for pattern in REFERENCE_PATTERNS)
+        if is_valid:
             match = m
             break
 
@@ -414,13 +421,22 @@ def extract_references(raw_text: str) -> Optional[str]:
         if m.start() >= min_position
     ]
 
-    # DeLFI-style reference entry pattern
-    DELFI_REF_ENTRY_RE = r'\s*\[(?:[A-Za-z]{2,4}|[A-Z][a-z]{1,2})\d{2}\]'
+    # Reference entry validation: Support multiple citation styles
+    # Style 1: DeLFI-style [BBS01], [HKN01], [Ka93]
+    # Style 2: Numeric [1], [2], [123]
+    # Style 3: Author-year without brackets: Bruner, J.S. (1961)
+    REFERENCE_PATTERNS = [
+        r'\s*\[(?:[A-Za-z]{2,4}|[A-Z][a-z]{1,2})\d{2}\]',  # DeLFI-style
+        r'^\s*\[\d{1,3}\]',  # Numeric style
+        r'^[A-ZÄÖÜ][a-zäöüß]+,\s+[A-Z].*?\(\d{4}\)',  # Author-year style
+    ]
 
     match = None
     for m in reversed(candidates):
         sample = raw_text[m.end(): min(len(raw_text), m.end() + 1500)]
-        if re.search(DELFI_REF_ENTRY_RE, sample):
+        # Validate that real references follow (check all patterns)
+        is_valid = any(re.search(pattern, sample, re.MULTILINE) for pattern in REFERENCE_PATTERNS)
+        if is_valid:
             match = m
             break
 
