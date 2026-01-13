@@ -56,6 +56,7 @@ def _is_corrupted_text(text: str, sample_size: int = 2000) -> bool:
         - "\\x1aE2F1C $ \\x05.3 \\x17.0.-\\x1c\\x1a"
         - ".">C"? \\x01FC4>"3I">0L"F*"
         - "1\\x1fe \\x06cLR?JG-E4M tPM \\x1fMe-EJpee<!EG?4L \\x11cG4MkG4cpM?euGee4M pM1 1G4"
+        - "'(LQ 0HWULNHQ EDVLHUWHU $QVDW] I\x81U GDV\n,QIRUPDWLRQVPDQDJHPHQW YRQ H/HDUQLQJ 3URMHNWHQ\n8ZH %OD]H\\ ± 5HLQHU \'XPNH\n8%,61(7 \x10 \"
     """
     if len(text) == 0:
         return True
@@ -87,6 +88,18 @@ def _is_corrupted_text(text: str, sample_size: int = 2000) -> bool:
 
     # 15% threshold chosen for DELFI e-learning CS publications (allows technical terms)
     if transition_ratio > 0.15:
+        return True
+
+    # Check for undefined C1 bytes that indicate encoding corruption
+    # Bytes 129, 141, 143, 144, 157 are undefined in ALL standard encodings
+    # (Windows-1252, ISO-8859-1, UTF-8, etc.) and indicate wrong codepage/missing CMap
+    # Example: \x81 appears when PDF uses custom encoding without proper Unicode mapping
+    # Note: Some C1 bytes ARE legitimate (e.g., 150=en-dash, 145-148=smart quotes)
+    undefined_c1_bytes = {129, 141, 143, 144, 157}
+    undefined_chars = sum(1 for c in sample if ord(c) in undefined_c1_bytes)
+
+    # Even a single undefined byte indicates severe encoding corruption
+    if undefined_chars > 0:
         return True
 
     return False
