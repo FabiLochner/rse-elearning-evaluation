@@ -228,17 +228,45 @@ def extract_main_content(raw_text: str) -> Optional[str]:
         match = re.search(pattern_keywords, raw_text, re.MULTILINE | re.IGNORECASE)
         if match:
             remaining_text = raw_text[match.end():]
-             # Strategy 1: Look for numbered section first (e.g., "1 Title" or "1\nTitle") -> same regex patterns used as in Priority 5 below
-            patterns_numbered = [
-                r'^\s*1\.?\s+[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # "1   Title" or "1. Title"
-                r'^\s*1\s*\n\s*[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # "1\nTitle"
-            ]
-            for pattern in patterns_numbered:
-                match_num = re.search(pattern, remaining_text, re.MULTILINE)
-                if match_num:
-                    start_pos = match.end() + match_num.start()
-                    break
+
+            # Define search region: section 1 header should appear directly below Keywords
+            # Use position of first uppercase line as boundary to prevent matching
+            # numbered list items that appear later in the document (e.g., in section 2)
+            first_uppercase_match = re.search(r'^\s*[A-ZÄÖÜ]', remaining_text, re.MULTILINE)
+
+            if first_uppercase_match:
+                # Search up to first uppercase line + buffer (for multi-line headers)
+                # Buffer allows for complete header text (~80 chars) + whitespace
+                search_limit = first_uppercase_match.start() + 150
+            else:
+                # Fallback: use fixed limit if no uppercase line found
+                search_limit = 150
+
+            search_region = remaining_text[:min(search_limit, len(remaining_text))]
+
+            # Strategy 1a: Unnumbered section header (for PyMuPDF extraction issues)
+            # Handles cases where section number "1" is not extracted (e.g., graphics/vector text)
+            # Matches section title without number prefix (e.g., "Ausgangspunkt der empirischen Studie")
+            pattern_unnumbered = r'^\s*[A-Za-zÄÖÜäöü][^\n]{0,80}$'
+            match_unnumbered = re.search(pattern_unnumbered, search_region, re.MULTILINE)
+            if match_unnumbered:
+                start_pos = match.end() + match_unnumbered.start()
+
+            # Strategy 1b: Numbered section header (normal case)
+            # Only search within limited region to avoid matching list items in later sections
+            if start_pos is None:
+                patterns_numbered = [
+                    r'^\s*1\.?\s+[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # "1   Title" or "1. Title"
+                    r'^\s*1\s*\n\s*[A-Za-zÄÖÜäöü][^\n]{0,80}$',  # "1\nTitle"
+                ]
+                for pattern in patterns_numbered:
+                    match_num = re.search(pattern, search_region, re.MULTILINE)
+                    if match_num:
+                        start_pos = match.end() + match_num.start()
+                        break
+
             # Strategy 2: Find the next non-empty line after Keywords (starts with uppercase)
+            # Fallback for unusual papers (searches entire remaining_text)
             if start_pos is None: #only runs if Strategy 1 was not successful
                 next_line_match = re.search(r'^\s*[A-ZÄÖÜ][^\n]+$', remaining_text, re.MULTILINE)
                 if next_line_match:
