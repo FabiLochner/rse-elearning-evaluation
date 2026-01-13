@@ -384,7 +384,7 @@ def extract_main_content(raw_text: str) -> Optional[str]:
     # === STEP 2: Find where main content ENDS (references section) ===
     # Matches: optional section number (separate/same line) + keyword + optional footnote
     # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1", "Bibliografie"
-    pattern_refs = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen|Quellenverzeichnis|Quellen|Reference\s+List)\d*\s*$'
+    pattern_refs = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen|Quellenverzeichnis|Quellen|Reference\s+List|Literaturverzeichnis\s+und\s+Internetquellen)\d*\s*$'
     #match = re.search(pattern_refs, raw_text, re.MULTILINE | re.IGNORECASE)
 
     # Position constraint: references must be in last 50% of document to avoid false positives
@@ -461,7 +461,7 @@ def extract_references(raw_text: str) -> Optional[str]:
     # Find references section - match the heading line
     # Matches: optional section number (separate/same line) + keyword + optional footnote
     # Examples: "Literatur", "5\nLiteratur", "5  Literatur", "5. Literatur", "Literatur1", "Bibliografie"
-    pattern_refs_start = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen|Quellenverzeichnis|Quellen|Reference\s+List)\d*\s*$'
+    pattern_refs_start = r'^\s*(?:\d+\s*\n\s*|\d+\.?\s+)?(References|Literaturverzeichnis|Literatur|Bibliography|Bibliografie|Referenzen|Quellenverzeichnis|Quellen|Reference\s+List|Literaturverzeichnis\s+und\s+Internetquellen)\d*\s*$'
     #match = re.search(pattern_refs_start, raw_text, re.MULTILINE | re.IGNORECASE)
 
     # Position constraint: references must be in last 50% of document to avoid false positives
