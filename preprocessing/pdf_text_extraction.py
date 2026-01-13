@@ -402,10 +402,12 @@ def extract_main_content(raw_text: str) -> Optional[str]:
     # Style 1: DeLFI-style [BBS01], [HKN01], [Ka93]
     # Style 2: Numeric [1], [2], [123]
     # Style 3: Author-year without brackets: Bruner, J.S. (1961)
+    # Style 4: Author-year with brackets: [Adler 2006], [Weber-Wulff 2002], [ISO 2006]
     REFERENCE_PATTERNS = [
         r'\s*\[(?:[A-Za-z]{2,4}|[A-Z][a-z]{1,2})\d{2}\]',  # DeLFI-style
         r'^\s*\[\d{1,3}\]',  # Numeric style
         r'^[A-ZÄÖÜ][a-zäöüß]+,\s+[A-Z].*?\(\d{4}\)',  # Author-year style
+        r'\s*\[[A-Z][A-Za-z-]+\s+\d{4}\]',  # Author-year bracketed style
     ]
 
     match = None
@@ -479,10 +481,12 @@ def extract_references(raw_text: str) -> Optional[str]:
     # Style 1: DeLFI-style [BBS01], [HKN01], [Ka93]
     # Style 2: Numeric [1], [2], [123]
     # Style 3: Author-year without brackets: Bruner, J.S. (1961)
+    # Style 4: Author-year with brackets: [Adler 2006], [Weber-Wulff 2002], [ISO 2006]
     REFERENCE_PATTERNS = [
         r'\s*\[(?:[A-Za-z]{2,4}|[A-Z][a-z]{1,2})\d{2}\]',  # DeLFI-style
         r'^\s*\[\d{1,3}\]',  # Numeric style
         r'^[A-ZÄÖÜ][a-zäöüß]+,\s+[A-Z].*?\(\d{4}\)',  # Author-year style
+        r'\s*\[[A-Z][A-Za-z-]+\s+\d{4}\]',  # Author-year bracketed style
     ]
 
     match = None
