@@ -43,6 +43,7 @@ def _is_corrupted_text(text: str, sample_size: int = 2000) -> bool:
     Internal helper function that checks text quality using heuristics:
     - Alphabetic character ratio (should be > 30% for German/English text)
     - Control character ratio (should be < 20%, excluding newlines/tabs)
+    - Letter-digit transition ratio (should be < 15% for technical CS papers)
 
     Args:
         text: Raw text extracted from PDF
@@ -54,6 +55,7 @@ def _is_corrupted_text(text: str, sample_size: int = 2000) -> bool:
     Examples of corrupted text:
         - "\\x1aE2F1C $ \\x05.3 \\x17.0.-\\x1c\\x1a"
         - ".">C"? \\x01FC4>"3I">0L"F*"
+        - "1\\x1fe \\x06cLR?JG-E4M tPM \\x1fMe-EJpee<!EG?4L \\x11cG4MkG4cpM?euGee4M pM1 1G4"
     """
     if len(text) == 0:
         return True
@@ -74,6 +76,17 @@ def _is_corrupted_text(text: str, sample_size: int = 2000) -> bool:
     if alpha_ratio < 0.30:  # Less than 30% alphabetic
         return True
     if control_ratio > 0.20:  # More than 20% control characters
+        return True
+
+    # Check for letter-digit transitions (corrupted text often has digits mixed with letters)
+    # Pattern: letter immediately adjacent to digit (e.g., "E4M", "pM1", "c4")
+    # Normal technical terms (Web2.0, HTML5, UTF8) have lower density even in CS papers
+    pattern = r'[a-zA-ZäöüÄÖÜß]\d|\d[a-zA-ZäöüÄÖÜß]'
+    transitions = len(re.findall(pattern, sample))
+    transition_ratio = transitions / total_chars
+
+    # 15% threshold chosen for DELFI e-learning CS publications (allows technical terms)
+    if transition_ratio > 0.15:
         return True
 
     return False
