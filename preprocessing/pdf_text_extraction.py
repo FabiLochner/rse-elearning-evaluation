@@ -101,7 +101,7 @@ def extract_main_content(raw_text: str) -> Optional[str]:
     if _is_corrupted_text(raw_text):
         print("WARNING: Corrupted PDF text detected (garbled encoding, missing CMap, or font issues).")
         print("         Extraction not possible. Returning None.")
-        return None
+        return "Corrupted text" #for debugging (later: return None)
 
     start_pos = None
 
