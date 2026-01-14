@@ -57,6 +57,7 @@ def _is_corrupted_text(text: str, sample_size: int = 2000) -> bool:
         - ".">C"? \\x01FC4>"3I">0L"F*"
         - "1\\x1fe \\x06cLR?JG-E4M tPM \\x1fMe-EJpee<!EG?4L \\x11cG4MkG4cpM?euGee4M pM1 1G4"
         - "'(LQ 0HWULNHQ EDVLHUWHU $QVDW] I\x81U GDV\n,QIRUPDWLRQVPDQDJHPHQW YRQ H/HDUQLQJ 3URMHNWHQ\n8ZH %OD]H\\ ± 5HLQHU \'XPNH\n8%,61(7 \x10 \"
+        - "nmlkigkec `?=lg;97 6O=NecM=l `LmKJO;G7 6O=NecMle Fuligc=ls7 regmeOk= qeKpk=l7"
     """
     if len(text) == 0:
         return True
@@ -100,6 +101,21 @@ def _is_corrupted_text(text: str, sample_size: int = 2000) -> bool:
 
     # Even a single undefined byte indicates severe encoding corruption
     if undefined_chars > 0:
+        return True
+
+    # Check for unusual punctuation density (wrong character mapping/substitution)
+    # Pattern: High density of '=' and ';' characters mixed with letters
+    # These characters are extremely rare in normal German/English prose:
+    # - '=' almost never appears (except in math equations, code, or URLs)
+    # - ';' is rare in German text (used sparingly for lists/complex sentences)
+    # Example corrupted text: "nmlkigkec `?=lg;97 6O=NecM=l `LmKJO;G7"
+    # Threshold: 3% chosen to allow legitimate CS papers with equations while catching corruption
+    unusual_punct = sum(1 for c in sample if c in '=;')
+    unusual_punct_ratio = unusual_punct / total_chars
+
+    # If > 3% of characters are '=' or ';', text is likely corrupted
+    # Normal CS text with equations: ~0.5-1.5%; Corrupted text: ~5-10%
+    if unusual_punct_ratio > 0.03:
         return True
 
     return False
