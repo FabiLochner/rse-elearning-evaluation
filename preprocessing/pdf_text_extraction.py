@@ -158,7 +158,7 @@ def extract_main_content(raw_text: str) -> Optional[str]:
         abstract_check = re.search(pattern_abstract_check, raw_text, re.MULTILINE | re.IGNORECASE)
 
         if abstract_check:
-            # If Abstract exists, search only in first 2000 chars after Abstract
+            # If Abstract exists, search only in first 2000 chars after Abstract (typical abstract length: 150-300 words)
             # (covers typical abstract + introduction header for both short and long papers)
             search_start = abstract_check.start()
             search_end = min(len(raw_text), abstract_check.start() + 2000)
@@ -170,7 +170,7 @@ def extract_main_content(raw_text: str) -> Optional[str]:
             offset = 0
 
         patterns_priority_2 = [
-            r'^\s*(?:Introduction|Einleitung|Einführung)\s*$',  # Allow leading/trailing whitespace
+            r'^\s*(?:Introduction|Einleitung|Einführung|Problemstellung)\s*$',  # Allow leading/trailing whitespace ("Problemstellung appeared in one empirical case")
             r'^\s*(?:Introduction|Einleitung|Einführung):\s*.+$',  # e.g., "Introduction: subtitle"
             r'^\s*(?:Introduction|Einleitung|Einführung)[\s–—-]+.{1,50}$',  # e.g., "Einleitung – Die chinesisch-deutsche..." (handles em-dash, en-dash, hyphen); Added a length limit to match intro headers but no text in the main body
         ]
@@ -182,8 +182,9 @@ def extract_main_content(raw_text: str) -> Optional[str]:
                 break
 
     # Priority 3: Below Abstract - for papers with abstract but no Keywords/Introduction
-    # Strategy 1: Blank-line detection (paragraph break after Abstract)
-    # Strategy 2: Period-newline-capital detection with minimum distance safeguard
+    # Strategy 1: Numbered section heading
+    # Strategy 2: Blank-line detection (paragraph break after Abstract)
+    # Strategy 3: Period-newline-capital detection with minimum distance safeguard
     if start_pos is None:
         has_keywords = re.search(r'^(?:Keywords|Key\s+words|Schlüsselwörter|Schlagwörter|Keyphrases|Key\s+phrases|Index\s+Terms|Suchbegriffe|Stichwörter|Indexbegriffe):\s*', raw_text, re.MULTILINE | re.IGNORECASE) #look whether there are keywords below the abstract
         if not has_keywords: # Only execute if paper lacks keywords (if it has keywords go to priority 4)
