@@ -394,9 +394,9 @@ def extract_main_content(raw_text: str) -> Optional[str]:
     #     # Conservative approach: if uncertain, leave start_pos = None
     #     # (will return None below instead of guessing)
 
-    # Fallback: start from beginning if no pattern found
+    # return None if no pattern found
     if start_pos is None:
-        start_pos = 0
+        return None
 
     # === STEP 2: Find where main content ENDS (references section) ===
     # Matches: optional section number (separate/same line) + keyword + optional footnote
