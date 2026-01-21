@@ -696,10 +696,6 @@ def main():
     print("ANNOTATION COMPLETE")
     print("=" * 70)
     print(f"Results saved to: {final_path}")
-    print("\nNext steps:")
-    print("  1. Review failed annotations (if any)")
-    print("  2. Create visualizations using the results CSV")
-    print("=" * 70 + "\n")
 
 
 if __name__ == "__main__":
