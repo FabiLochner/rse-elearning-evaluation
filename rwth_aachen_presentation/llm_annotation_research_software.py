@@ -271,7 +271,7 @@ def classify_pdf(
 
                         "1. Research Software (label_research_software): Does the article contain research software? Research software includes source code files, algorithms, scripts, computational workflows and executables that were created during the research process or for a research purpose. (0 = contains no research software, 1 = contains research software)"
                         
-                        "2. Software Evaluation (label_software_evaluation): Does the article evaluate the research software? A key focus is, whether the quality characteristics of the software are evaluated.(0 = no evaluation, 1 = evaluates software)"
+                        "2. Software Evaluation (label_software_evaluation): Does the article evaluate the research software? A key focus is, whether the quality characteristics of the software are evaluated. (0 = no evaluation, 1 = evaluates software)"
 
                         "3. Empirical Study (label_empirical_study): Is the article an empirical study where software serves as a means to conduct empirical research? Empirical research includes:"
                         "- hypothesis-testing empirical research with largely standardized steps and rules in the research process and the use of statistical methods"
@@ -280,7 +280,7 @@ def classify_pdf(
                         
                         "(0 = not an empirical study, 1 = is an empirical study)"
 
-                        " For each classification, briefly explain your decision."
+                        "For each classification, briefly explain your decision."
                     }
                 ]
             }
@@ -317,14 +317,38 @@ def classify_pdf_with_retry(
                 print(f"  WARNING: Missing 'label_research_software' in response for {pdf_path.name}")
                 result["label_research_software"] = None
             
-            if "label_justification" not in result:
-                print(f"  WARNING: Missing 'label_justification' in response for {pdf_path.name}")
-                result["label_justification"] = None
+            if "label_research_software_justification" not in result:
+                print(f"  WARNING: Missing 'label_research_software_justification' in response for {pdf_path.name}")
+                result["label_research_software_justification"] = None
+
+            if "label_software_evaluation" not in result:
+                print(f"  WARNING: Missing 'label_software_evaluation' in response for {pdf_path.name}")
+                result["label_software_evaluation"] = None
+
+            if "label_software_evaluation_justification" not in result:
+                print(f"  WARNING: Missing 'label_software_evaluation_justification' in response for {pdf_path.name}")
+                result["label_software_evaluation_justification"] = None
+
+            if "label_empirical_study" not in result:
+                print(f"  WARNING: Missing 'label_empirical_study' in response for {pdf_path.name}")
+                result["label_empirical_study"] = None
+
+            if "label_empirical_study_justification" not in result:
+                print(f"  WARNING: Missing 'label_empirical_study_justification' in response for {pdf_path.name}")
+                result["label_empirical_study_justification"] = None
             
-            # Validate label_research_software value
+            # Validate binary values
             if result["label_research_software"] not in [0, 1, None]:
                 print(f"  WARNING: Invalid 'label_research_software' value: {result['label_research_software']} for {pdf_path.name}")
                 result["label_research_software"] = None
+
+            if result["label_software_evaluation"] not in [0, 1, None]:
+                print(f"  WARNING: Invalid 'label_software_evaluation' value: {result['label_software_evaluation']} for {pdf_path.name}")
+                result["label_software_evaluation"] = None
+
+            if result["label_empirical_study"] not in [0, 1, None]:
+                print(f"  WARNING: Invalid 'label_empirical_study' value: {result['label_empirical_study']} for {pdf_path.name}")
+                result["label_empirical_study"] = None
             
             result["status"] = "success"
             return result
@@ -339,7 +363,11 @@ def classify_pdf_with_retry(
     # All retries failed
     return {
         "label_research_software": None,
-        "label_justification": None,
+        "label_research_software_justification": None,
+        "label_software_evaluation": None,
+        "label_software_evaluation_justification": None,
+        "label_empirical_study": None,
+        "label_empirical_study_justification": None,
         "status": f"failed: {last_error}"
     }
 
@@ -434,7 +462,11 @@ def process_pdfs(
                 "year": year,
                 "filename": pdf_path.name,
                 "label_research_software": result["label_research_software"],
-                "label_justification": result["label_justification"],
+                "label_research_software_justification": result["label_research_software_justification"],
+                "label_software_evaluation": result["label_software_evaluation"],
+                "label_software_evaluation_justification": result["label_software_evaluation_justification"],
+                "label_empirical_study": result["label_empirical_study"],
+                "label_empirical_study_justification": result["label_empirical_study_justification"],
                 "status": result["status"]
             }
             results.append(record)
@@ -731,7 +763,7 @@ def main():
     )
     
     # Print yearly summary
-    print_yearly_summary(results_df)
+    #print_yearly_summary(results_df)
     
     print("\n" + "=" * 70)
     print("ANNOTATION COMPLETE")
