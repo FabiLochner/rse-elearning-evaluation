@@ -11,7 +11,7 @@ def has_metadata_xlsx(folder: Path) -> str | None:
         if (
             item.is_file()
             and item.suffix.lower() == ".xlsx"
-            and item.name.lower().startswith("metadata-")
+            and item.name.lower().startswith("metadata")
         ):
             return item.name
     return None
