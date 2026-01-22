@@ -94,13 +94,35 @@ JSON_SCHEMA_CONFIG = {
         "properties": {
             "label_research_software": {
                 "type": "integer",
-                "enum": [0, 1]
+                "enum": [0, 1],
+                "description": "Whether the DeLFI article contains research software"
             },
-            "label_justification": {
+            "label_research_software_justification": {
+                "type": "string"
+            },
+            "label_software_evaluation": {
+                "type": "integer",
+                "enum": [0,1],
+                "description": "Whether the DeLFI article evaluates the research software"
+            },
+            "label_software_evaluation_justification": {
+                "type": "string"
+            },
+            "label_empirical_study": {
+                "type": "integer",
+                "enum": [0,1],
+                "description": "Whether the DeLFI article is an empirical study"
+            },
+            "label_empirical_study_justification": {
                 "type": "string"
             }
         },
-        "required": ["label_research_software", "label_justification"],
+        "required": ["label_research_software", 
+                     "label_research_software_justification",
+                     "label_software_evaluation",
+                     "label_software_evaluation_justification",
+                     "label_empirical_study",
+                     "label_empirical_study_justification"],
         "additionalProperties": False
     },
     "strict": True
@@ -202,7 +224,7 @@ def classify_pdf(
     temperature: float
 ) -> dict:
     """
-    Classify a single DeLFI paper for research software content.
+    Classify a single DeLFI paper for research software, evaluation, and empirical study.
     
     Args:
         client: OpenAI client instance
@@ -211,7 +233,13 @@ def classify_pdf(
         temperature: Temperature for generation (0 for reproducibility)
     
     Returns:
-        Dict with keys: 'label_research_software' (0 or 1), 'label_justification' (str)
+        Dict with keys:
+        - 'label_research_software' (0 or 1)
+        - 'label_research_software_justification' (str)
+        - 'label_software_evaluation' (0 or 1)
+        - 'label_software_evaluation_justification' (str)
+        - 'label_empirical_study' (0 or 1)
+        - 'label_empirical_study_justification' (str)
         Or dict with 'error' key if classification failed
     """
     # Encode PDF as base64
@@ -225,7 +253,7 @@ def classify_pdf(
         messages=[
             {
                 "role": "system",
-                "content": "You are an expert in classifying scientific journal articles. Classify whether a journal article contains research software."
+                "content": "You are an expert in classifying scientific journal articles. You will classify articles based on three criteria: research software presence, research software evaluation, and empirical study methodology."
             },
             {
                 "role": "user",
@@ -239,7 +267,20 @@ def classify_pdf(
                     },
                     {
                         "type": "text",
-                        "text": "Classify whether this scientific journal article contains research software or not. Research software includes source code files, algorithms, scripts, computational workflows and executables that were created during the research process or for a research purpose. Provide classification labels (0 = contains no research software, 1 = contains research software). Briefly explain your decision."
+                        "text": "Classify this scientific journal article on three dimensions: "
+
+                        "1. Research Software (label_research_software): Does the article contain research software? Research software includes source code files, algorithms, scripts, computational workflows and executables that were created during the research process or for a research purpose. (0 = contains no research software, 1 = contains research software)"
+                        
+                        "2. Software Evaluation (label_software_evaluation): Does the article evaluate the research software? A key focus is, whether the quality characteristics of the software are evaluated.(0 = no evaluation, 1 = evaluates software)"
+
+                        "3. Empirical Study (label_empirical_study): Is the article an empirical study where software serves as a means to conduct empirical research? Empirical research includes:"
+                        "- hypothesis-testing empirical research with largely standardized steps and rules in the research process and the use of statistical methods"
+                        "- descriptive empirical research with common steps and rules in the research process and the use of diverse analysis methods, including in the field"
+                        "- intervening empirical research with variable steps and rules in the research process and the use of diverse analysis methods, including in the field"
+                        
+                        "(0 = not an empirical study, 1 = is an empirical study)"
+
+                        " For each classification, briefly explain your decision."
                     }
                 ]
             }
