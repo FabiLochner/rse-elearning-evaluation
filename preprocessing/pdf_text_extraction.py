@@ -5,8 +5,9 @@ Regex functions for extracting main content and references
 from DELFI PDF publications using PyMuPDF.
 
 Usage:
-    from preprocessing.pdf_extraction import (
+    from preprocessing.pdf_text_extraction import (
         extract_text_from_pdf,
+        get_page_count,
         extract_main_content,
         extract_references
     )
@@ -18,22 +19,48 @@ from pathlib import Path
 from typing import Optional
 
 
-def extract_text_from_pdf(pdf_path: Path | str) -> str:
+def extract_text_from_pdf(pdf_path: Path | str, min_pages: int | None = None) -> str | None:
     """
     Extract raw text from PDF using PyMuPDF.
 
     Args:
         pdf_path: Path to the PDF file
+        min_pages: Minimum required pages. If set and PDF has fewer pages,
+                   extraction is skipped and None is returned.
+                   Default None means no filtering (extract all PDFs).
 
     Returns:
-        Raw text content from all pages concatenated
+        Raw text content from all pages concatenated, or None if page requirement not met.
     """
     doc = pymupdf.open(pdf_path)
+
+    # Check page count FIRST - skip extraction if below threshold
+    if min_pages is not None and len(doc) < min_pages:
+        doc.close()
+        return None
+    
     text = ""
     for page in doc:
         text += page.get_text()
     doc.close()
     return text
+
+def get_page_count(pdf_path: Path | str) -> int:
+    """
+    Get page count from PDF without performing text extraction.
+    
+    Useful for filtering or statistics when you don't need the actual text.
+    
+    Args:
+        pdf_path: Path to the PDF file
+    
+    Returns:
+        Number of pages in the PDF
+    """
+    doc = pymupdf.open(pdf_path)
+    count = len(doc)
+    doc.close()
+    return count
 
 
 def _is_corrupted_text(text: str, sample_size: int = 2000) -> bool:
