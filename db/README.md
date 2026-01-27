@@ -41,6 +41,13 @@ mysql -u your_user -p < db/schema/schema_paper_only_2025-12-29.sql
 ### Phase 2: Insert Paper Data
 
 
+**For DeLFI Papers with Metadata Files**
+```bash
+# From project root
+python3 db/setup/02_insert_paper_data.py data/preprocessed/delfi_paper_with_metadata_2026-01-27.csv
+```
+
+
 ### Phase 3: Create LLM Annotations Tables
 
 
@@ -54,5 +61,6 @@ db/
 │   └── schema_paper_only_2025-12-29.sql
 ├── setup/                   # Python scripts to execute schemas
 │   └── 01_create_paper_table.py
+    └── 02_insert_paper_data.py
 └── test/crud/               # Database connection tests
     └── mysql_crud_test.ipynb
