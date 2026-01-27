@@ -584,9 +584,118 @@ def extract_references(raw_text: str) -> Optional[str]:
 
 
 # --- For papers WITHOUT metadata ---
-def extract_title_from_pdf(raw_text: str) -> str:
-    """Extract title from PDF text (for papers without metadata)."""
-    ...
+def extract_title_from_pdf(raw_text: str, max_lines: int = 4, max_chars: int = 800) -> str | None:
+    """
+    Extract title from PDF text (for papers without metadata).
+    
+    Handles two formats:
+        1. Direct start: Title at top (lni111, lni169, lni233)
+        2. Header format: Skip 3 lines of metadata, title starts at line 4 (lni262, lni273, lni247)
+    
+    Strategy:
+        1. Skip header lines if present (detect "(Hrsg.)", "LNI", standalone page numbers)
+        2. Collect title lines until author pattern detected
+        3. Clean and join title lines
+    
+    Args:
+        raw_text: Full text extracted from PDF
+        max_lines: Maximum number of lines for title (default: 4)
+        max_chars: Maximum characters to search in (default: 800)
+    
+    Returns:
+        Extracted title as single-line string, or None if extraction fails
+    """
+    # Check for corrupted text first
+    if _is_corrupted_text(raw_text):
+        return None
+    
+    # Work with first portion of document
+    search_region = raw_text[:max_chars]
+    lines = search_region.split('\n')
+    
+    # === STEP 1: Skip header lines (for lni262, lni273, lni247 format) ===
+    
+    # Header detection patterns
+    header_patterns = [
+        r'\(Hrsg\.\)',  # "(Hrsg.)"
+        r'Lecture Notes in Informatics',  # "Lecture Notes in Informatics (LNI)"
+        r'Gesellschaft für Informatik',  # "Gesellschaft für Informatik, Bonn 2016"
+    ]
+    
+    start_idx = 0
+    for i, line in enumerate(lines[:5]):  # Check first 5 lines only
+        line_stripped = line.strip()
+        
+        # Skip empty lines
+        if not line_stripped:
+            continue
+        
+        # Check if line is header metadata
+        is_header = any(re.search(pattern, line_stripped, re.IGNORECASE) for pattern in header_patterns)
+        
+        # Check if line is just a page number (1-3 digits alone)
+        is_page_number = re.match(r'^\d{1,3}$', line_stripped)
+        
+        if is_header or is_page_number:
+            start_idx = i + 1  # Start after this line
+        else:
+            # First non-header line found
+            break
+    
+    # === STEP 2: Collect title lines ===
+    
+    title_lines = []
+    
+    # Author patterns (German academic papers)
+    # Pattern 1: Multiple names with commas (may have superscript numbers or affiliation symbols)
+    # Examples: "Dominik Niehus, Patrik Erren, Thorsten Hampel"
+    #           "Julian Börner1, Jessika Buraczynska1, Jessica Gärtner1"
+    #           "Andreas Kaminski*, Jochen Huber†, Christian Diel*, Sandro Hardy‡"
+    # Format: Firstname Lastname[affiliation_markers], ...
+    author_pattern_commas = r'^[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß]+[\s\d*†‡§¶]*,.*[A-ZÄÖÜ][a-zäöüß]+'
+    
+    # Pattern 2: Names with "und" (German "and")
+    # Example: "Sven Manske2 und H. Ulrich Hoppe2"
+    author_pattern_und = r'\sund\s[A-ZÄÖÜ]'
+    
+    for i in range(start_idx, min(len(lines), start_idx + max_lines + 3)):
+        line_stripped = lines[i].strip()
+        
+        # Skip empty lines
+        if not line_stripped:
+            continue
+        
+        # Stop if we hit author line
+        if (re.search(author_pattern_commas, line_stripped) or 
+            re.search(author_pattern_und, line_stripped)):
+            break
+        
+        # Stop if we've collected max_lines for title
+        if len(title_lines) >= max_lines:
+            break
+        
+        # Title lines should:
+        # - Start with uppercase letter (or digit for rare cases like "3D...")
+        # - Be substantial (> 10 chars to avoid stray formatting)
+        # - Not be just numbers (page numbers)
+        if (line_stripped and 
+            len(line_stripped) > 10 and
+            not line_stripped.isdigit()):
+            title_lines.append(line_stripped)
+    
+    # === STEP 3: Clean and join ===
+    
+    if not title_lines:
+        return None
+    
+    # Join title lines with space
+    title = ' '.join(title_lines)
+    
+    # Clean up multiple spaces
+    title = re.sub(r'\s+', ' ', title)
+    
+    return title.strip()
+
 
 def extract_authors_from_pdf(raw_text: str) -> str:
     """Extract authors from PDF text (for papers without metadata)."""
