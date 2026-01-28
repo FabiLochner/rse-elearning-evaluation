@@ -170,7 +170,7 @@ def extract_main_content(raw_text: str) -> Optional[str]:
     if _is_corrupted_text(raw_text):
         print("WARNING: Corrupted PDF text detected (garbled encoding, missing CMap, or font issues).")
         print("         Extraction not possible. Returning None.")
-        return "Corrupted text" #for debugging (later: return None)
+        return None #for debugging (later: return None)
 
     start_pos = None
 
@@ -584,7 +584,7 @@ def extract_references(raw_text: str) -> Optional[str]:
 
 
 # --- For papers WITHOUT metadata ---
-def extract_title_from_pdf(raw_text: str, max_lines: int = 4, max_chars: int = 800) -> str | None:
+def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 800) -> str | None:
     """
     Extract title from PDF text (for papers without metadata).
     
@@ -599,7 +599,7 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 4, max_chars: int = 8
     
     Args:
         raw_text: Full text extracted from PDF
-        max_lines: Maximum number of lines for title (default: 4)
+        max_lines: Maximum number of lines for title (default: 5)
         max_chars: Maximum characters to search in (default: 800)
     
     Returns:
@@ -607,6 +607,8 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 4, max_chars: int = 8
     """
     # Check for corrupted text first
     if _is_corrupted_text(raw_text):
+        print("WARNING: Corrupted PDF text detected (garbled encoding, missing CMap, or font issues).")
+        print("         Extraction not possible. Returning None.")
         return None
     
     # Work with first portion of document
@@ -656,7 +658,8 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 4, max_chars: int = 8
     
     # Pattern 2: Names with "und" (German "and")
     # Example: "Sven Manske2 und H. Ulrich Hoppe2"
-    author_pattern_und = r'\sund\s[A-ZÄÖÜ]'
+    # Requires full name pattern after "und": "und Firstname Lastname"
+    author_pattern_und = r'\sund\s[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß]+'
     
     for i in range(start_idx, min(len(lines), start_idx + max_lines + 3)):
         line_stripped = lines[i].strip()
@@ -684,13 +687,17 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 4, max_chars: int = 8
             title_lines.append(line_stripped)
     
     # === STEP 3: Clean and join ===
-    
+
     if not title_lines:
         return None
-    
+
     # Join title lines with space
     title = ' '.join(title_lines)
-    
+
+    # Remove space after hyphen (reconstruct hyphenated words split across lines)
+    # E.g., "Lern- managementsysteme" → "Lern-managementsysteme"
+    title = title.replace('- ', '-')
+
     # Clean up multiple spaces
     title = re.sub(r'\s+', ' ', title)
     
