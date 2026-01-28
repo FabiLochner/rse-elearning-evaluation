@@ -649,27 +649,35 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
     title_lines = []
     
     # Author patterns (German academic papers)
-    # Pattern 1: Multiple names with commas (may have superscript numbers or affiliation symbols)
-    # Examples: "Dominik Niehus, Patrik Erren, Thorsten Hampel"
-    #           "Julian Börner1, Jessika Buraczynska1, Jessica Gärtner1"
-    #           "Andreas Kaminski*, Jochen Huber†, Christian Diel*, Sandro Hardy‡"
-    #           "J¨urgen Steimle, Iryna Gurevych" (ill-formed umlauts with combining diacritic)
-    # Format: Firstname Lastname[affiliation_markers], ...
-    # Note: Includes ¨´` to handle ill-formed diacritics from PDF extraction errors
-    author_pattern_commas = r'^[A-ZÄÖÜ][a-zäöüß¨´`]+\s+[A-ZÄÖÜ][a-zäöüß¨´`]+[\s\d*†‡§¶]*,.*[A-ZÄÖÜ][a-zäöüß¨´`]+'
+    # Character classes for international names:
+    # - German: äöüÄÖÜß
+    # - Spanish/Portuguese: áéíóúÁÉÍÓÚñÑãõÃÕ
+    # - French: àèéêëìîïôùûçÀÈÉÊËÌÎÏÔÙÛÇ
+    # - Eastern European: ăășțĂȘȚčšžČŠŽđĐłŁńŃśŚźŹżŻąĄęĘćĆ
+    # - Ill-formed diacritics: ¨´` (from PDF extraction errors)
+    UPPER = r'[A-ZÄÖÜÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÑĂĂȘȚČŠŽĐŁŃŚŹŻĄĘĆ]'
+    LOWER = r'[a-zäöüßáéíóúàèìòùâêîôûãõñăășțčšžđłńśźżąęć¨´`]'
+
+    # Middle initial: optional uppercase letter + optional period + space
+    # Examples: "G. ", "A. ", "H. " (common in English/American names)
+    MIDDLE_INITIAL = r'(?:[A-Z]\.?\s+)?'
+
+    # Pattern 1: Multiple names with commas
+    # Examples: "Dominik Niehus, Patrik Erren"
+    #           "Ian G. Kennedy1, Paul H. Vossen2" (with middle initials)
+    #           "Erika Ábrahám, Philipp Brauner" (with accented characters)
+    # Format: Firstname [MiddleInitial] Lastname[markers], ...
+    author_pattern_commas = rf'^{UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+[\s\d*†‡§¶]*,.*{UPPER}{LOWER}+'
 
     # Pattern 2: Names with "und" (German "and")
-    # Example: "Sven Manske2 und H. Ulrich Hoppe2"
-    # Requires full name pattern after "und": "und Firstname Lastname"
-    author_pattern_und = r'\sund\s[A-ZÄÖÜ][a-zäöüß¨´`]+\s+[A-ZÄÖÜ][a-zäöüß¨´`]+'
+    # Examples: "Sven Manske2 und H. Ulrich Hoppe2"
+    #           "Peter A. Henning und Klaus Müller" (with middle initials)
+    author_pattern_und = rf'\sund\s{UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+'
 
-    # Pattern 3: Single author (just Firstname Lastname)
-    # Examples: "Klaus Wannemacher"
-    #           "Nadine Ojstersek"
-    #           "Andrea Kienle"
-    # Format: Exactly "Firstname Lastname[affiliation_markers]" with no additional words
-    # The $ anchor ensures line ends after name (prevents matching multi-word titles)
-    author_pattern_single = r'^[A-ZÄÖÜ][a-zäöüß¨´`]+\s+[A-ZÄÖÜ][a-zäöüß¨´`]+[\s\d*†‡§¶]*$'
+    # Pattern 3: Single author
+    # Examples: "Klaus Wannemacher", "Andrea Kienle"
+    # Format: Firstname [MiddleInitial] Lastname[markers] (end of line)
+    author_pattern_single = rf'^{UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+[\s\d*†‡§¶]*$'
 
     # Institution keywords to distinguish institution names from author names
     # (e.g., "Hochschule Pforzheim" vs "Klaus Wannemacher")
