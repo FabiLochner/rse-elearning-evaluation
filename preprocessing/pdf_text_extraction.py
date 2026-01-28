@@ -653,24 +653,35 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
     # Examples: "Dominik Niehus, Patrik Erren, Thorsten Hampel"
     #           "Julian Börner1, Jessika Buraczynska1, Jessica Gärtner1"
     #           "Andreas Kaminski*, Jochen Huber†, Christian Diel*, Sandro Hardy‡"
+    #           "J¨urgen Steimle, Iryna Gurevych" (ill-formed umlauts with combining diacritic)
     # Format: Firstname Lastname[affiliation_markers], ...
-    author_pattern_commas = r'^[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß]+[\s\d*†‡§¶]*,.*[A-ZÄÖÜ][a-zäöüß]+'
-    
+    # Note: Includes ¨´` to handle ill-formed diacritics from PDF extraction errors
+    author_pattern_commas = r'^[A-ZÄÖÜ][a-zäöüß¨´`]+\s+[A-ZÄÖÜ][a-zäöüß¨´`]+[\s\d*†‡§¶]*,.*[A-ZÄÖÜ][a-zäöüß¨´`]+'
+
     # Pattern 2: Names with "und" (German "and")
     # Example: "Sven Manske2 und H. Ulrich Hoppe2"
     # Requires full name pattern after "und": "und Firstname Lastname"
-    author_pattern_und = r'\sund\s[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß]+'
-    
+    author_pattern_und = r'\sund\s[A-ZÄÖÜ][a-zäöüß¨´`]+\s+[A-ZÄÖÜ][a-zäöüß¨´`]+'
+
+    # Pattern 3: Single author (just Firstname Lastname)
+    # Examples: "Klaus Wannemacher"
+    #           "Nadine Ojstersek"
+    #           "Andrea Kienle"
+    # Format: Exactly "Firstname Lastname[affiliation_markers]" with no additional words
+    # The $ anchor ensures line ends after name (prevents matching multi-word titles)
+    author_pattern_single = r'^[A-ZÄÖÜ][a-zäöüß¨´`]+\s+[A-ZÄÖÜ][a-zäöüß¨´`]+[\s\d*†‡§¶]*$'
+
     for i in range(start_idx, min(len(lines), start_idx + max_lines + 3)):
         line_stripped = lines[i].strip()
-        
+
         # Skip empty lines
         if not line_stripped:
             continue
-        
-        # Stop if we hit author line
-        if (re.search(author_pattern_commas, line_stripped) or 
-            re.search(author_pattern_und, line_stripped)):
+
+        # Stop if we hit author line (check all three patterns)
+        if (re.search(author_pattern_commas, line_stripped) or
+            re.search(author_pattern_und, line_stripped) or
+            re.match(author_pattern_single, line_stripped)):
             break
         
         # Stop if we've collected max_lines for title
