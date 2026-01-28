@@ -671,6 +671,14 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
     # The $ anchor ensures line ends after name (prevents matching multi-word titles)
     author_pattern_single = r'^[A-ZÄÖÜ][a-zäöüß¨´`]+\s+[A-ZÄÖÜ][a-zäöüß¨´`]+[\s\d*†‡§¶]*$'
 
+    # Institution keywords to distinguish institution names from author names
+    # (e.g., "Hochschule Pforzheim" vs "Klaus Wannemacher")
+    institution_keywords = [
+        'hochschule', 'universität', 'institut', 'fakultät',
+        'university', 'institute', 'faculty', 'department',
+        'fachbereich', 'lehrstuhl', 'fraunhofer', 'school', 'college'
+    ]
+
     for i in range(start_idx, min(len(lines), start_idx + max_lines + 3)):
         line_stripped = lines[i].strip()
 
@@ -679,10 +687,21 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
             continue
 
         # Stop if we hit author line (check all three patterns)
+        # Pattern 1 & 2: Always break (multiple authors or "und")
         if (re.search(author_pattern_commas, line_stripped) or
-            re.search(author_pattern_und, line_stripped) or
-            re.match(author_pattern_single, line_stripped)):
+            re.search(author_pattern_und, line_stripped)):
             break
+
+        # Pattern 3: Single author - check if it's actually an institution name
+        if re.match(author_pattern_single, line_stripped):
+            # If line contains institution keywords, it's likely part of title
+            # (e.g., "Hochschule Pforzheim" in title vs "Klaus Wannemacher" author)
+            if any(keyword in line_stripped.lower() for keyword in institution_keywords):
+                # It's an institution name in the title, continue collecting
+                pass  # Fall through to title collection logic below
+            else:
+                # It's likely a real single author name, stop here
+                break
         
         # Stop if we've collected max_lines for title
         if len(title_lines) >= max_lines:
@@ -690,10 +709,10 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
         
         # Title lines should:
         # - Start with uppercase letter (or digit for rare cases like "3D...")
-        # - Be substantial (> 10 chars to avoid stray formatting)
+        # - Be substantial (> 5 chars to avoid stray formatting)
         # - Not be just numbers (page numbers)
         if (line_stripped and 
-            len(line_stripped) > 10 and
+            len(line_stripped) > 5 and
             not line_stripped.isdigit()):
             title_lines.append(line_stripped)
     
