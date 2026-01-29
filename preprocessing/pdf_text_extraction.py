@@ -987,7 +987,8 @@ def extract_authors_from_pdf(raw_text: str, max_lines: int = 5) -> str | None:
         'kompetenzzentrum', 'kompetenz-center', 'e-learning center',
         'universität', 'hochschule', 'institut', 'fakultät', 'abteilung',
         'fernuniversität', 'donau-universität', 'oberstufenzentrum',
-        'multimedia', 'lab für informatik', 'beuth hochschule'
+        'multimedia', 'lab für informatik', 'beuth hochschule', 'fachgebiet',
+        'tu dortmund', 'lufg informatik'
     ]
     
     institution_keywords_en = [
