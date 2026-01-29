@@ -803,7 +803,7 @@ def _extract_title_lines_raw(raw_text: str, max_lines: int = 5, max_chars: int =
     Extract title lines from PDF text WITHOUT joining them.
 
     Returns raw title lines and the line index where title ended.
-    This is a helper function used by both extract_title_from_pdf and extract_authors_from_pdf.
+    This is a helper function used by def extract_authors_from_pdf.
 
     Args:
         raw_text: Full text extracted from PDF
@@ -992,7 +992,7 @@ def extract_authors_from_pdf(raw_text: str, max_lines: int = 5) -> str | None:
     
     institution_keywords_en = [
         'university', 'institute', 'faculty', 'department', 'college',
-        'school', 'laboratory', 'lab', 'center', 'center for', 'fraunhofer'
+        'school', 'laboratory', 'lab', 'center', 'center for', 'fraunhofer', 'research group'
     ]
     
     all_institution_keywords = institution_keywords_de + institution_keywords_en
@@ -1035,6 +1035,20 @@ def extract_authors_from_pdf(raw_text: str, max_lines: int = 5) -> str | None:
     # === POSTPROCESSING ===
     # Remove affiliation markers: digits and special symbols (*, †, ‡, §, ¶)
     authors = re.sub(r'[\d*†‡§¶]+', '', authors)
+
+    # Fix separated diacritics (PyMuPDF extraction artifacts)
+    # PyMuPDF extracts ü/ö/ä as ¨u/¨o/¨a (diacritic BEFORE letter)
+    diacritic_mappings = [
+        (r'¨a', 'ä'), (r'¨o', 'ö'), (r'¨u', 'ü'),
+        (r'¨A', 'Ä'), (r'¨O', 'Ö'), (r'¨U', 'Ü'),
+        (r'´a', 'á'), (r'´e', 'é'), (r'´i', 'í'), (r'´o', 'ó'), (r'´u', 'ú'),
+        (r'´A', 'Á'), (r'´E', 'É'), (r'´I', 'Í'), (r'´O', 'Ó'), (r'´U', 'Ú'),
+        (r'`a', 'à'), (r'`e', 'è'), (r'`i', 'ì'), (r'`o', 'ò'), (r'`u', 'ù'),
+        (r'`A', 'À'), (r'`E', 'È'), (r'`I', 'Ì'), (r'`O', 'Ò'), (r'`U', 'Ù'),
+    ]
+
+    for pattern, replacement in diacritic_mappings:
+        authors = authors.replace(pattern, replacement)
 
     # Clean up spaces
     authors = re.sub(r'\s+', ' ', authors).strip()
