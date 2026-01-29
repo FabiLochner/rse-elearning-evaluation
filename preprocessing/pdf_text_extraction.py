@@ -616,34 +616,46 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
     lines = search_region.split('\n')
     
     # === STEP 1: Skip header lines (for lni262, lni273, lni247 format) ===
-    
+
     # Header detection patterns
     header_patterns = [
         r'\(Hrsg\.\)',  # "(Hrsg.)"
         r'Lecture Notes in Informatics',  # "Lecture Notes in Informatics (LNI)"
         r'Gesellschaft für Informatik',  # "Gesellschaft für Informatik, Bonn 2016"
     ]
-    
+
     start_idx = 0
     for i, line in enumerate(lines[:5]):  # Check first 5 lines only
         line_stripped = line.strip()
-        
+
         # Skip empty lines
         if not line_stripped:
             continue
-        
+
         # Check if line is header metadata
         is_header = any(re.search(pattern, line_stripped, re.IGNORECASE) for pattern in header_patterns)
-        
+
         # Check if line is just a page number (1-3 digits alone)
         is_page_number = re.match(r'^\d{1,3}$', line_stripped)
-        
+
         if is_header or is_page_number:
             start_idx = i + 1  # Start after this line
         else:
             # First non-header line found
             break
-    
+
+    # === STEP 1.5: Skip consecutive blank lines ===
+    # Some PDFs have multiple blank lines before title (e.g., 241.pdf has 8 blank lines)
+    # Advance start_idx until we find first non-empty line
+    MAX_BLANK_LINES = 10  # Safety limit to prevent edge cases
+    blank_count = 0
+    while start_idx < len(lines) and blank_count < MAX_BLANK_LINES:
+        if lines[start_idx].strip():
+            # Found first non-empty line, stop here
+            break
+        start_idx += 1
+        blank_count += 1
+
     # === STEP 2: Collect title lines ===
     
     title_lines = []
