@@ -1017,7 +1017,7 @@ def extract_authors_from_pdf(raw_text: str, max_lines: int = 5) -> str | None:
         'fernuniversität', 'donau-universität', 'oberstufenzentrum',
         'multimedia', 'lab für informatik', 'beuth hochschule', 'fachgebiet',
         'tu dortmund', 'lufg informatik', 'informatik und angewandte kognitionswissenschaft',
-        'gewerblich technisches'
+        'gewerblich technisches', 'fg medienproduktion', 'dfg-graduiertenkolleg „qualitätsverbesserung im e-learning'
     ]
     
     institution_keywords_en = [
