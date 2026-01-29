@@ -685,8 +685,10 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
     # Examples: "Sven Manske2 und H. Ulrich Hoppe2"
     #           "Peter A. Henning und Klaus Müller" (with middle initials)
     #           "Sven Strickroth1 & Niels Pinkwart2" (with ampersand)
+    #           "Ahmad Fatoum2und Jörg Abke1" (PDF extraction error: missing space)
     # Strategy: Look for "und" or "&" pattern, then validate with affiliation markers
-    author_pattern_und_base = rf'(?:\sund\s|\s&\s){UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+'
+    # Allow digit before "und" to handle PDF extraction errors (e.g., "2und" instead of "2 und")
+    author_pattern_und_base = rf'(?:[\s\d]und\s|\s&\s){UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+'
 
     # Pattern 3: Single author
     # Examples: "Klaus Wannemacher", "Andrea Kienle"
