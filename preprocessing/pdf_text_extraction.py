@@ -670,30 +670,32 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
     UPPER = r'[A-ZÄÖÜÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÑĂĂȘȚČŠŽĐŁŃŚŹŻĄĘĆ]'
     LOWER = r'[a-zäöüßáéíóúàèìòùâêîôûãõñăășțčšžđłńśźżąęć¨´`]'
 
-    # Middle initial: optional uppercase letter + optional period + space
-    # Examples: "G. ", "A. ", "H. " (common in English/American names)
-    MIDDLE_INITIAL = r'(?:[A-Z]\.?\s+)?'
+    # Middle name: optional middle initial or full middle name
+    # Examples: "G. ", "A. ", "H. " (initials)
+    #           "Michael ", "Alexander ", "Marie " (full names)
+    MIDDLE_NAME = r'(?:(?:[A-Z]\.?\s+)|(?:[A-Z][a-zäöüß]+\s+))?'
 
     # Pattern 1: Multiple names with commas
     # Examples: "Dominik Niehus, Patrik Erren"
     #           "Ian G. Kennedy1, Paul H. Vossen2" (with middle initials)
+    #           "Kai Michael Höver, Guido Rößling" (with full middle names)
     #           "Erika Ábrahám, Philipp Brauner" (with accented characters)
-    # Format: Firstname [MiddleInitial] Lastname[markers], ...
-    author_pattern_commas = rf'^{UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+[\s\d*†‡§¶]*,.*{UPPER}{LOWER}+'
+    # Format: Firstname [MiddleName] Lastname[markers], ...
+    author_pattern_commas = rf'^{UPPER}{LOWER}+\s+{MIDDLE_NAME}{UPPER}{LOWER}+[\s\d*†‡§¶]*,.*{UPPER}{LOWER}+'
 
     # Pattern 2: Names with "und" or "&" (German/English "and")
     # Examples: "Sven Manske2 und H. Ulrich Hoppe2"
-    #           "Peter A. Henning und Klaus Müller" (with middle initials)
+    #           "Peter A. Henning und Klaus Müller" (with middle initials/names)
     #           "Sven Strickroth1 & Niels Pinkwart2" (with ampersand)
     #           "Ahmad Fatoum2und Jörg Abke1" (PDF extraction error: missing space)
     # Strategy: Look for "und" or "&" pattern, then validate with affiliation markers
     # Allow digit before "und" to handle PDF extraction errors (e.g., "2und" instead of "2 und")
-    author_pattern_und_base = rf'(?:[\s\d]und\s|\s&\s){UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+'
+    author_pattern_und_base = rf'(?:[\s\d]und\s|\s&\s){UPPER}{LOWER}+\s+{MIDDLE_NAME}{UPPER}{LOWER}+'
 
     # Pattern 3: Single author
     # Examples: "Klaus Wannemacher", "Andrea Kienle"
-    # Format: Firstname [MiddleInitial] Lastname[markers] (end of line)
-    author_pattern_single = rf'^{UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+[\s\d*†‡§¶]*$'
+    # Format: Firstname [MiddleName] Lastname[markers] (end of line)
+    author_pattern_single = rf'^{UPPER}{LOWER}+\s+{MIDDLE_NAME}{UPPER}{LOWER}+[\s\d*†‡§¶]*$'
 
     # Institution keywords to distinguish institution names from author names
     # (e.g., "Hochschule Pforzheim" vs "Klaus Wannemacher")
@@ -721,7 +723,7 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
         if re.search(author_pattern_und_base, line_stripped):
             # Additional validation: line should start with name pattern and contain affiliation markers
             has_affiliation_markers = bool(re.search(r'[A-ZÄÖÜ][a-zäöüß]+[\d*†‡§¶]', line_stripped))
-            starts_with_name = bool(re.match(rf'^{UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+', line_stripped))
+            starts_with_name = bool(re.match(rf'^{UPPER}{LOWER}+\s+{MIDDLE_NAME}{UPPER}{LOWER}+', line_stripped))
 
             if has_affiliation_markers and starts_with_name:
                 # This is an author line (e.g., "Sven Strickroth1 & Niels Pinkwart2")
