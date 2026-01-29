@@ -670,32 +670,38 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
     UPPER = r'[A-ZÄÖÜÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÑĂĂȘȚČŠŽĐŁŃŚŹŻĄĘĆ]'
     LOWER = r'[a-zäöüßáéíóúàèìòùâêîôûãõñăășțčšžđłńśźżąęć¨´`]'
 
-    # Middle name: optional middle initial or full middle name
+    # Firstname pattern: supports hyphenated names
+    # Examples: "Annette", "Chiu-Li", "Marie-Claire", "Jean-Paul"
+    FIRSTNAME = rf'{UPPER}{LOWER}+(?:-{UPPER}{LOWER}+)*'
+
+    # Middle name: optional middle initial or full middle name (with optional hyphens)
     # Examples: "G. ", "A. ", "H. " (initials)
-    #           "Michael ", "Alexander ", "Marie " (full names)
-    MIDDLE_NAME = r'(?:(?:[A-Z]\.?\s+)|(?:[A-Z][a-zäöüß]+\s+))?'
+    #           "Michael ", "Alexander ", "Marie-Claire " (full names, possibly hyphenated)
+    MIDDLE_NAME = rf'(?:(?:[A-Z]\.?\s+)|(?:{UPPER}{LOWER}+(?:-{UPPER}{LOWER}+)*\s+))?'
 
     # Pattern 1: Multiple names with commas
     # Examples: "Dominik Niehus, Patrik Erren"
     #           "Ian G. Kennedy1, Paul H. Vossen2" (with middle initials)
     #           "Kai Michael Höver, Guido Rößling" (with full middle names)
     #           "Erika Ábrahám, Philipp Brauner" (with accented characters)
+    #           "Annette Baumann1, Chiu-Li Tseng2" (with hyphenated names)
     # Format: Firstname [MiddleName] Lastname[markers], ...
-    author_pattern_commas = rf'^{UPPER}{LOWER}+\s+{MIDDLE_NAME}{UPPER}{LOWER}+[\s\d*†‡§¶]*,.*{UPPER}{LOWER}+'
+    author_pattern_commas = rf'^{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}[\s\d*†‡§¶]*,.*{FIRSTNAME}'
 
     # Pattern 2: Names with "und" or "&" (German/English "and")
     # Examples: "Sven Manske2 und H. Ulrich Hoppe2"
     #           "Peter A. Henning und Klaus Müller" (with middle initials/names)
     #           "Sven Strickroth1 & Niels Pinkwart2" (with ampersand)
     #           "Ahmad Fatoum2und Jörg Abke1" (PDF extraction error: missing space)
+    #           "Annette Baumann1 und Chiu-Li Tseng2" (with hyphenated names)
     # Strategy: Look for "und" or "&" pattern, then validate with affiliation markers
     # Allow digit before "und" to handle PDF extraction errors (e.g., "2und" instead of "2 und")
-    author_pattern_und_base = rf'(?:[\s\d]und\s|\s&\s){UPPER}{LOWER}+\s+{MIDDLE_NAME}{UPPER}{LOWER}+'
+    author_pattern_und_base = rf'(?:[\s\d]und\s|\s&\s){FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}'
 
     # Pattern 3: Single author
-    # Examples: "Klaus Wannemacher", "Andrea Kienle"
+    # Examples: "Klaus Wannemacher", "Andrea Kienle", "Chiu-Li Tseng"
     # Format: Firstname [MiddleName] Lastname[markers] (end of line)
-    author_pattern_single = rf'^{UPPER}{LOWER}+\s+{MIDDLE_NAME}{UPPER}{LOWER}+[\s\d*†‡§¶]*$'
+    author_pattern_single = rf'^{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}[\s\d*†‡§¶]*$'
 
     # Institution keywords to distinguish institution names from author names
     # (e.g., "Hochschule Pforzheim" vs "Klaus Wannemacher")
