@@ -728,16 +728,36 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
                 break
             # Otherwise: likely title phrase with "und" (e.g., "Badges und Open Badges"), continue collecting
 
-        # Pattern 3: Single author - check if it's actually an institution name
+        # Pattern 3: Single author - check if it's actually an institution name or 2-word title
         if re.match(author_pattern_single, line_stripped):
-            # If line contains institution keywords, it's likely part of title
-            # (e.g., "Hochschule Pforzheim" in title vs "Klaus Wannemacher" author)
+            # Check 1: Institution keywords (e.g., "Hochschule Pforzheim" in title)
             if any(keyword in line_stripped.lower() for keyword in institution_keywords):
-                # It's an institution name in the title, continue collecting
-                pass  # Fall through to title collection logic below
+                pass  # Institution name in title, continue collecting
             else:
-                # It's likely a real single author name, stop here
-                break
+                # Check 2: Conservative lookahead to distinguish 2-word title from single author
+                # If next non-empty line has multiple authors, current line is likely last title line
+                # Examples: "Adaptive Lehrvideos" before "Author1, Author2 und Author3"
+                #           "Reasoning Skills" before "Laura Wartschinski, Nguyen-Thinh Le"
+                next_has_multiple_authors = False
+
+                for j in range(i + 1, min(i + 3, len(lines))):  # Check next 1-2 lines
+                    next_line = lines[j].strip()
+                    if not next_line:
+                        continue  # Skip empty lines
+
+                    # Check if next line has multiple authors (comma or "und" with affiliation markers)
+                    has_comma = bool(re.search(author_pattern_commas, next_line))
+                    has_und = bool(re.search(author_pattern_und_base, next_line) and
+                                   re.search(r'[A-ZÄÖÜ][a-zäöüß]+[\d*†‡§¶]', next_line))
+
+                    if has_comma or has_und:
+                        next_has_multiple_authors = True
+                    break  # Only check first non-empty line
+
+                if next_has_multiple_authors:
+                    pass  # Current line is 2-word title, continue collecting
+                else:
+                    break  # Current line is single author, stop here
         
         # Stop if we've collected max_lines for title
         if len(title_lines) >= max_lines:
