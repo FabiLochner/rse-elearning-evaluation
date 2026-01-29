@@ -669,10 +669,12 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
     # Format: Firstname [MiddleInitial] Lastname[markers], ...
     author_pattern_commas = rf'^{UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+[\s\d*†‡§¶]*,.*{UPPER}{LOWER}+'
 
-    # Pattern 2: Names with "und" (German "and")
+    # Pattern 2: Names with "und" or "&" (German/English "and")
     # Examples: "Sven Manske2 und H. Ulrich Hoppe2"
     #           "Peter A. Henning und Klaus Müller" (with middle initials)
-    author_pattern_und = rf'\sund\s{UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+'
+    #           "Sven Strickroth1 & Niels Pinkwart2" (with ampersand)
+    # Strategy: Look for "und" or "&" pattern, then validate with affiliation markers
+    author_pattern_und_base = rf'(?:\sund\s|\s&\s){UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+'
 
     # Pattern 3: Single author
     # Examples: "Klaus Wannemacher", "Andrea Kienle"
@@ -694,11 +696,23 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
         if not line_stripped:
             continue
 
-        # Stop if we hit author line (check all three patterns)
-        # Pattern 1 & 2: Always break (multiple authors or "und")
-        if (re.search(author_pattern_commas, line_stripped) or
-            re.search(author_pattern_und, line_stripped)):
+        # Stop if we hit author line (check all patterns)
+
+        # Pattern 1: Comma-separated names (always reliable)
+        if re.search(author_pattern_commas, line_stripped):
             break
+
+        # Pattern 2: "und" or "&" - requires additional validation
+        # Check if line has "und" or "&" pattern AND affiliation markers (digits/symbols)
+        if re.search(author_pattern_und_base, line_stripped):
+            # Additional validation: line should start with name pattern and contain affiliation markers
+            has_affiliation_markers = bool(re.search(r'[A-ZÄÖÜ][a-zäöüß]+[\d*†‡§¶]', line_stripped))
+            starts_with_name = bool(re.match(rf'^{UPPER}{LOWER}+\s+{MIDDLE_INITIAL}{UPPER}{LOWER}+', line_stripped))
+
+            if has_affiliation_markers and starts_with_name:
+                # This is an author line (e.g., "Sven Strickroth1 & Niels Pinkwart2")
+                break
+            # Otherwise: likely title phrase with "und" (e.g., "Badges und Open Badges"), continue collecting
 
         # Pattern 3: Single author - check if it's actually an institution name
         if re.match(author_pattern_single, line_stripped):
