@@ -1068,7 +1068,7 @@ def extract_authors_from_pdf(raw_text: str, max_lines: int = 5) -> str | None:
     
     # === POSTPROCESSING ===
     # Remove affiliation markers: digits and special symbols (*, †, ‡, §, ¶, כ)
-    authors = re.sub(r'[\d*†‡§¶כ]+', '', authors)
+    authors = re.sub(r'[\d*†‡§¶כ¹²³⁴⁵⁶⁷⁸⁹⁰]+', '', authors)
 
     # Fix separated diacritics (PyMuPDF extraction artifacts)
     # PyMuPDF extracts ü/ö/ä as ¨u/¨o/¨a (diacritic BEFORE letter)
