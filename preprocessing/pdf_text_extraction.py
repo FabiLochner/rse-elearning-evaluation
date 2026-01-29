@@ -798,9 +798,252 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
     return title.strip()
 
 
-def extract_authors_from_pdf(raw_text: str) -> str:
-    """Extract authors from PDF text (for papers without metadata)."""
-    ...
+def _extract_title_lines_raw(raw_text: str, max_lines: int = 5, max_chars: int = 800) -> tuple[list[str], int] | None:
+    """
+    Extract title lines from PDF text WITHOUT joining them.
+
+    Returns raw title lines and the line index where title ended.
+    This is a helper function used by both extract_title_from_pdf and extract_authors_from_pdf.
+
+    Args:
+        raw_text: Full text extracted from PDF
+        max_lines: Maximum number of lines for title (default: 5)
+        max_chars: Maximum characters to search in (default: 800)
+
+    Returns:
+        Tuple of (title_lines, end_line_index) where end_line_index is the index
+        in the split lines where the title ended (exclusive - next line is authors).
+        Returns None if extraction fails.
+    """
+    # Check for corrupted text first
+    if _is_corrupted_text(raw_text):
+        return None
+
+    # Work with first portion of document
+    search_region = raw_text[:max_chars]
+    lines = search_region.split('\n')
+
+    # === STEP 1: Skip header lines ===
+    header_patterns = [
+        r'\(Hrsg\.\)',
+        r'Lecture Notes in Informatics',
+        r'Gesellschaft für Informatik',
+    ]
+
+    start_idx = 0
+    for i, line in enumerate(lines[:5]):
+        line_stripped = line.strip()
+        if not line_stripped:
+            continue
+
+        is_header = any(re.search(pattern, line_stripped, re.IGNORECASE) for pattern in header_patterns)
+        is_page_number = re.match(r'^\d{1,3}$', line_stripped)
+
+        if is_header or is_page_number:
+            start_idx = i + 1
+        else:
+            break
+
+    # === STEP 1.5: Skip consecutive blank lines ===
+    MAX_BLANK_LINES = 10
+    blank_count = 0
+    while start_idx < len(lines) and blank_count < MAX_BLANK_LINES:
+        if lines[start_idx].strip():
+            break
+        start_idx += 1
+        blank_count += 1
+
+    # === STEP 2: Collect title lines ===
+    title_lines = []
+
+    # Author patterns (same as used throughout)
+    UPPER = r'[A-ZÄÖÜÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÑĂUȘȚČŠŽĐŁŃŚŹŻĄĘĆ]'
+    LOWER = r'[a-zäöüßáéíóúàèìòùâêîôûãõñăușțčšžđłńśźżąęć¨´`]'
+    FIRSTNAME = rf'{UPPER}{LOWER}+(?:-{UPPER}{LOWER}+)*'
+    MIDDLE_NAME = rf'(?:(?:[A-Z]\.?\s+)|(?:{UPPER}{LOWER}+(?:-{UPPER}{LOWER}+)*\s+))?'
+
+    author_pattern_commas = rf'^{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}[\s\d*†‡§¶]*,.*{FIRSTNAME}'
+    author_pattern_und_base = rf'(?:[\s\d]und\s|\s&\s){FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}'
+    author_pattern_single = rf'^{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}[\s\d*†‡§¶]*$'
+
+    institution_keywords = [
+        'hochschule', 'universität', 'institut', 'fakultät',
+        'university', 'institute', 'faculty', 'department',
+        'fachbereich', 'lehrstuhl', 'fraunhofer', 'school', 'college'
+    ]
+
+    end_idx = start_idx
+    for i in range(start_idx, min(len(lines), start_idx + max_lines + 3)):
+        line_stripped = lines[i].strip()
+
+        # Skip empty lines
+        if not line_stripped:
+            continue
+
+        # Stop if we hit author line (check all patterns)
+
+        # Pattern 1: Comma-separated names
+        if re.search(author_pattern_commas, line_stripped):
+            end_idx = i
+            break
+
+        # Pattern 2: "und" or "&"
+        if re.search(author_pattern_und_base, line_stripped):
+            has_affiliation_markers = bool(re.search(r'[A-ZÄÖÜ][a-zäöüß]+[\d*†‡§¶]', line_stripped))
+            starts_with_name = bool(re.match(rf'^{UPPER}{LOWER}+\s+{MIDDLE_NAME}{UPPER}{LOWER}+', line_stripped))
+
+            if has_affiliation_markers and starts_with_name:
+                end_idx = i
+                break
+
+        # Pattern 3: Single author
+        if re.match(author_pattern_single, line_stripped):
+            if any(keyword in line_stripped.lower() for keyword in institution_keywords):
+                pass  # Institution name, continue collecting
+            else:
+                # Lookahead to distinguish 2-word title from single author
+                next_has_multiple_authors = False
+
+                for j in range(i + 1, min(i + 3, len(lines))):
+                    next_line = lines[j].strip()
+                    if not next_line:
+                        continue
+
+                    has_comma = bool(re.search(author_pattern_commas, next_line))
+                    has_und = bool(re.search(author_pattern_und_base, next_line) and
+                                   re.search(r'[A-ZÄÖÜ][a-zäöüß]+[\d*†‡§¶]', next_line))
+
+                    if has_comma or has_und:
+                        next_has_multiple_authors = True
+                    break
+
+                if next_has_multiple_authors:
+                    pass  # Current line is 2-word title, continue collecting
+                else:
+                    end_idx = i
+                    break
+
+        # Stop if we've collected max_lines for title
+        if len(title_lines) >= max_lines:
+            end_idx = i
+            break
+
+        # Collect title line
+        if (line_stripped and
+            len(line_stripped) > 5 and
+            not line_stripped.isdigit()):
+            title_lines.append(line_stripped)
+
+    if not title_lines:
+        return None
+
+    return title_lines, end_idx
+
+
+def extract_authors_from_pdf(raw_text: str, max_lines: int = 5) -> str | None:
+    """
+    Extract authors from PDF text (for papers without metadata).
+    
+    Authors typically appear immediately after the title and before affiliation/abstract.
+    Can span multiple lines when many authors are listed.
+    
+    Strategy:
+        1. Extract title first to get individual title lines
+        2. Find where title ends in raw_text (line-by-line matching)
+        3. Collect consecutive lines that look like author names
+        4. Stop when encountering institution keywords or Abstract
+    
+    Args:
+        raw_text: Full text extracted from PDF
+        max_lines: Maximum number of lines to collect as authors (default: 5)
+    
+    Returns:
+        Extracted authors as single-line string, or None if extraction fails
+    """
+    # Step 1: Use helper to find where title ends
+    result = _extract_title_lines_raw(raw_text)
+    if result is None:
+        return None
+
+    _, start_idx = result  # end_idx from helper IS the author start index
+
+    # Step 2: Collect author lines
+    lines = raw_text[:2000].split('\n')
+
+    # Step 3: Collect author lines
+    UPPER = r'[A-ZÄÖÜÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÑĂUȘȚČŠŽĐŁŃŚŹŻĄĘĆ]'
+    LOWER = r'[a-zäöüßáéíóúàèìòùâêîôûãõñăușțčšžđłńśźżąęć¨´`]'
+    FIRSTNAME = rf'{UPPER}{LOWER}+(?:-{UPPER}{LOWER}+)*'
+    MIDDLE_NAME = rf'(?:(?:[A-Z]\.?\s+)|(?:{UPPER}{LOWER}+(?:-{UPPER}{LOWER}+)*\s+))?'
+
+    # Patterns that indicate author lines
+    author_pattern_commas = rf'{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}'
+    
+    # Institution keywords
+    institution_keywords_de = [
+        'lehrstuhl', 'professur', 'lehr- und forschungsgebiet', 'lehrgebiet',
+        'lehr- und forschungsgruppe', 'arbeitsgruppe', 'arbeitsbereich',
+        'fachgruppe', 'fachbereich', 'zentrum', 'zentrum für',
+        'kompetenzzentrum', 'kompetenz-center', 'e-learning center',
+        'universität', 'hochschule', 'institut', 'fakultät', 'abteilung',
+        'fernuniversität', 'donau-universität', 'oberstufenzentrum',
+        'multimedia', 'lab für informatik', 'beuth hochschule'
+    ]
+    
+    institution_keywords_en = [
+        'university', 'institute', 'faculty', 'department', 'college',
+        'school', 'laboratory', 'lab', 'center', 'center for', 'fraunhofer'
+    ]
+    
+    all_institution_keywords = institution_keywords_de + institution_keywords_en
+    
+    # Abstract keywords
+    abstract_keywords = ['Abstract:', 'Zusammenfassung:', 'Kurzfassung:', 'Summary:', 'Résumé:']
+    
+    author_lines = []
+    
+    # Collect consecutive lines that look like authors
+    for i in range(start_idx, min(len(lines), start_idx + max_lines)):
+        line_stripped = lines[i].strip()
+        
+        if not line_stripped:
+            # Blank line - check if next line is institution
+            if i + 1 < len(lines) and any(kw in lines[i + 1].lower() for kw in all_institution_keywords):
+                break
+            continue
+        
+        # Stop at institution keywords
+        if any(keyword in line_stripped.lower() for keyword in all_institution_keywords):
+            break
+        
+        # Stop at Abstract
+        if any(keyword in line_stripped for keyword in abstract_keywords):
+            break
+        
+        # Stop at email addresses (unless they're on author line)
+        if '@' in line_stripped and not re.search(author_pattern_commas, line_stripped):
+            break
+        
+        # Collect this line (it passed all stop conditions)
+        author_lines.append(line_stripped)
+    
+    if not author_lines:
+        return None
+    
+    authors = ' '.join(author_lines)
+    
+    # === POSTPROCESSING ===
+    # Remove affiliation markers: digits and special symbols (*, †, ‡, §, ¶)
+    authors = re.sub(r'[\d*†‡§¶]+', '', authors)
+
+    # Clean up spaces
+    authors = re.sub(r'\s+', ' ', authors).strip()
+
+    # Remove trailing punctuation
+    authors = re.sub(r',\s*$', '', authors)
+    authors = re.sub(r'\s+und\s*$', '', authors)
+    
+    return authors.strip()
 
 def extract_abstract_from_pdf(raw_text: str) -> str | None:
     """Extract abstract from PDF text."""
