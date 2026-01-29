@@ -48,12 +48,12 @@ def extract_text_from_pdf(pdf_path: Path | str, min_pages: int | None = None) ->
 def get_page_count(pdf_path: Path | str) -> int:
     """
     Get page count from PDF without performing text extraction.
-    
+
     Useful for filtering or statistics when you don't need the actual text.
-    
+
     Args:
         pdf_path: Path to the PDF file
-    
+
     Returns:
         Number of pages in the PDF
     """
@@ -61,6 +61,34 @@ def get_page_count(pdf_path: Path | str) -> int:
     count = len(doc)
     doc.close()
     return count
+
+
+def _normalize_diacritics(text: str) -> str:
+    """
+    Normalize separated diacritics from PyMuPDF extraction.
+
+    PyMuPDF sometimes extracts diacritics as separate characters before the base letter
+    (e.g., ¨u instead of ü). This function applies the standard mappings to normalize them.
+
+    Args:
+        text: Text with potentially separated diacritics
+
+    Returns:
+        Text with normalized diacritics
+    """
+    diacritic_mappings = [
+        (r'¨a', 'ä'), (r'¨o', 'ö'), (r'¨u', 'ü'),
+        (r'¨A', 'Ä'), (r'¨O', 'Ö'), (r'¨U', 'Ü'),
+        (r'´a', 'á'), (r'´e', 'é'), (r'´i', 'í'), (r'´o', 'ó'), (r'´u', 'ú'),
+        (r'´A', 'Á'), (r'´E', 'É'), (r'´I', 'Í'), (r'´O', 'Ó'), (r'´U', 'Ú'),
+        (r'`a', 'à'), (r'`e', 'è'), (r'`i', 'ì'), (r'`o', 'ò'), (r'`u', 'ù'),
+        (r'`A', 'À'), (r'`E', 'È'), (r'`I', 'Ì'), (r'`O', 'Ò'), (r'`U', 'Ù'),
+    ]
+
+    for pattern, replacement in diacritic_mappings:
+        text = text.replace(pattern, replacement)
+
+    return text
 
 
 def _is_corrupted_text(text: str, sample_size: int = 2000) -> bool:
@@ -862,9 +890,9 @@ def _extract_title_lines_raw(raw_text: str, max_lines: int = 5, max_chars: int =
     FIRSTNAME = rf'{UPPER}{LOWER}+(?:-{UPPER}{LOWER}+)*'
     MIDDLE_NAME = rf'(?:(?:[A-Z]\.?\s+)|(?:{UPPER}{LOWER}+(?:-{UPPER}{LOWER}+)*\s+))?'
 
-    author_pattern_commas = rf'^{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}[\s\d*†‡§¶]*,.*{FIRSTNAME}'
+    author_pattern_commas = rf'^{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}[\s\d*†‡§¶כ]*,.*{FIRSTNAME}'
     author_pattern_und_base = rf'(?:[\s\d]und\s|\s&\s){FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}'
-    author_pattern_single = rf'^{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}[\s\d*†‡§¶]*$'
+    author_pattern_single = rf'^{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}[\s\d*†‡§¶כ]*$'
 
     institution_keywords = [
         'hochschule', 'universität', 'institut', 'fakultät',
@@ -988,7 +1016,8 @@ def extract_authors_from_pdf(raw_text: str, max_lines: int = 5) -> str | None:
         'universität', 'hochschule', 'institut', 'fakultät', 'abteilung',
         'fernuniversität', 'donau-universität', 'oberstufenzentrum',
         'multimedia', 'lab für informatik', 'beuth hochschule', 'fachgebiet',
-        'tu dortmund', 'lufg informatik'
+        'tu dortmund', 'lufg informatik', 'informatik und angewandte kognitionswissenschaft',
+        'gewerblich technisches'
     ]
     
     institution_keywords_en = [
@@ -1006,15 +1035,19 @@ def extract_authors_from_pdf(raw_text: str, max_lines: int = 5) -> str | None:
     # Collect consecutive lines that look like authors
     for i in range(start_idx, min(len(lines), start_idx + max_lines)):
         line_stripped = lines[i].strip()
-        
+
         if not line_stripped:
             # Blank line - check if next line is institution
-            if i + 1 < len(lines) and any(kw in lines[i + 1].lower() for kw in all_institution_keywords):
+            # Normalize diacritics before checking (handles PyMuPDF artifacts like Universit¨at)
+            next_line_normalized = _normalize_diacritics(lines[i + 1].lower()) if i + 1 < len(lines) else ""
+            if any(kw in next_line_normalized for kw in all_institution_keywords):
                 break
             continue
-        
+
         # Stop at institution keywords
-        if any(keyword in line_stripped.lower() for keyword in all_institution_keywords):
+        # Normalize diacritics before checking (handles PyMuPDF artifacts like Universit¨at)
+        line_normalized = _normalize_diacritics(line_stripped.lower())
+        if any(keyword in line_normalized for keyword in all_institution_keywords):
             break
         
         # Stop at Abstract
@@ -1034,8 +1067,8 @@ def extract_authors_from_pdf(raw_text: str, max_lines: int = 5) -> str | None:
     authors = ' '.join(author_lines)
     
     # === POSTPROCESSING ===
-    # Remove affiliation markers: digits and special symbols (*, †, ‡, §, ¶)
-    authors = re.sub(r'[\d*†‡§¶]+', '', authors)
+    # Remove affiliation markers: digits and special symbols (*, †, ‡, §, ¶, כ)
+    authors = re.sub(r'[\d*†‡§¶כ]+', '', authors)
 
     # Fix separated diacritics (PyMuPDF extraction artifacts)
     # PyMuPDF extracts ü/ö/ä as ¨u/¨o/¨a (diacritic BEFORE letter)
