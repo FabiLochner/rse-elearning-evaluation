@@ -714,7 +714,7 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
     #           "Erika Ábrahám, Philipp Brauner" (with accented characters)
     #           "Annette Baumann1, Chiu-Li Tseng2" (with hyphenated names)
     # Format: Firstname [MiddleName] Lastname[markers], ...
-    author_pattern_commas = rf'^{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}[\s\d*†‡§¶]*,.*{FIRSTNAME}'
+    author_pattern_commas = rf'^{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}[\s\d*†‡§¶כ]*,.*{FIRSTNAME}'
 
     # Pattern 2: Names with "und" or "&" (German/English "and")
     # Examples: "Sven Manske2 und H. Ulrich Hoppe2"
@@ -729,7 +729,7 @@ def extract_title_from_pdf(raw_text: str, max_lines: int = 5, max_chars: int = 8
     # Pattern 3: Single author
     # Examples: "Klaus Wannemacher", "Andrea Kienle", "Chiu-Li Tseng"
     # Format: Firstname [MiddleName] Lastname[markers] (end of line)
-    author_pattern_single = rf'^{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}[\s\d*†‡§¶]*$'
+    author_pattern_single = rf'^{FIRSTNAME}\s+{MIDDLE_NAME}{FIRSTNAME}[\s\d*†‡§¶כ]*$'
 
     # Institution keywords to distinguish institution names from author names
     # (e.g., "Hochschule Pforzheim" vs "Klaus Wannemacher")
